@@ -1,0 +1,8 @@
+[package]
+name = "pijama"
+version = "0.1.0"
+authors = ["Christian Poveda <git@pvdrz.com>"]
+edition = "2018"
+
+[dependencies]
+object = { version  = "0.24", features = ["write_core"] }
