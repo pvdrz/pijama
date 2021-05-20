@@ -1,8 +1,17 @@
+use std::fmt;
+
 pub struct Instruction {
     pub label: Option<Label>,
     pub kind: InstructionKind,
 }
-
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.label {
+            Some(lbl) => write!(f, "{}: {}", lbl, self.kind),
+            None => write!(f, "       {}", self.kind),
+        }
+    }
+}
 /// Instructions for the Pijama Abstract Machine (PAM).
 pub enum InstructionKind {
     /// Load the contents of an address into a register.
@@ -29,6 +38,24 @@ pub enum InstructionKind {
     Call(Register),
 }
 
+impl fmt::Display for InstructionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InstructionKind::Load { src, dst } => write!(f, "load  {},{}", src, dst),
+            InstructionKind::LoadImm { src, dst } => write!(f, "loadi {:#x},{}", src, dst),
+            InstructionKind::Store { src, dst } => write!(f, "store {},{}", src, dst),
+            InstructionKind::Push(src) => write!(f, "push  {}", src),
+            InstructionKind::Pop(dst) => write!(f, "pop   {}", dst),
+            InstructionKind::Add { src, dst } => write!(f, "add   {},{}", src, dst),
+            InstructionKind::AddImm { src, dst } => write!(f, "addi  {:#x},{}", src, dst),
+            InstructionKind::JumpLez { reg, addr } => write!(f, "jlez  {},{}", reg, addr),
+            InstructionKind::Jump(addr) => write!(f, "jmp   {}", addr),
+            InstructionKind::Return => write!(f, "ret"),
+            InstructionKind::Call(reg) => write!(f, "call  {}", reg),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Register {
@@ -42,9 +69,31 @@ pub enum Register {
     Di = 0x7,
 }
 
+impl fmt::Display for Register {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ax => "rax",
+            Self::Cx => "rcx",
+            Self::Dx => "rdx",
+            Self::Bx => "rbx",
+            Self::Sp => "rsp",
+            Self::Bp => "rbp",
+            Self::Si => "rsi",
+            Self::Di => "rdi",
+        }
+        .fmt(f)
+    }
+}
+
 pub struct Address {
     pub base: BaseAddr,
     pub offset: i32,
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#x}({})", self.offset, self.base)
+    }
 }
 
 pub enum BaseAddr {
@@ -52,5 +101,20 @@ pub enum BaseAddr {
     Lab(Label),
 }
 
+impl fmt::Display for BaseAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BaseAddr::Ind(reg) => reg.fmt(f),
+            BaseAddr::Lab(lbl) => lbl.fmt(f),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub usize);
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "lb_{:02x}", self.0)
+    }
+}
