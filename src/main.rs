@@ -1,4 +1,5 @@
 mod asm;
+mod dataflow;
 mod mir;
 mod x86;
 
@@ -66,6 +67,8 @@ fn example() -> Vec<Instruction> {
 }
 
 fn main() {
+    println!("{:?}", dataflow::dataflow(&mir::example()));
+
     let asm = example();
 
     for ins in &asm {
