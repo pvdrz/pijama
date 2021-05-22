@@ -1,9 +1,9 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-};
+use std::collections::HashSet;
 
-use crate::mir::{Block, BlockData, FnDef, Local, Statement, Terminator};
+use crate::{
+    index::IndexMap,
+    mir::{Block, BlockData, FnDef, Local, Statement, Terminator},
+};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Def {
@@ -52,60 +52,60 @@ fn preds_of(fn_def: &FnDef, target: Block) -> HashSet<Block> {
     for (block, block_data) in fn_def.blocks.iter() {
         match &block_data.terminator {
             Terminator::Jump(blk) if &target == blk => {
-                preds.insert(*block);
+                preds.insert(block);
             }
             Terminator::JumpIf {
                 then_blk, else_blk, ..
             } if &target == then_blk || &target == else_blk => {
-                preds.insert(*block);
+                preds.insert(block);
             }
             _ => (),
         }
     }
 
-    if target == Block(0) {
-        preds.insert(Block(usize::MAX));
-    }
-
     preds
 }
 
-pub fn dataflow(fn_def: &FnDef) -> HashMap<Block, HashSet<Def>> {
-    let mut values_out = fn_def
-        .blocks
-        .keys()
-        .map(|block| (*block, Value::default()))
-        .collect::<HashMap<Block, Value>>();
+pub fn dataflow(fn_def: &FnDef) -> IndexMap<Block, HashSet<Def>> {
+    let mut values_out = IndexMap::<Block, Value>::with_capacity(fn_def.blocks.len());
+    let mut preds = IndexMap::<Block, HashSet<Block>>::with_capacity(fn_def.blocks.len());
 
-    values_out.insert(
-        Block(usize::MAX),
+    for block in fn_def.blocks.keys() {
+        values_out.push(Value::default());
+        preds.push(preds_of(fn_def, block));
+    }
+
+    let entry = values_out.push(
         fn_def
             .locals
             .keys()
             .skip(fn_def.arity)
-            .map(|local| Def::Dummy(*local))
+            .map(Def::Dummy)
             .collect(),
     );
+
+    preds[Block(0)].insert(entry);
 
     while {
         let mut changed = false;
 
         for (block, block_data) in fn_def.blocks.iter() {
-            let value_out = &values_out[block];
-            let value_in = preds_of(fn_def, *block)
-                .into_iter()
-                .map(|pred| &values_out[&pred])
-                .fold(Value::new(), |mut acc, x| {
-                    for x in x {
-                        acc.insert(x.clone());
+            let value_in = preds[block].iter().map(|&pred| &values_out[pred]).fold(
+                Value::new(),
+                |mut acc, defs| {
+                    for def in defs {
+                        acc.insert(def.clone());
                     }
                     acc
-                });
-            let new_out = transfer_block(&value_in, block_data, *block);
+                },
+            );
+            let new_out = transfer_block(&value_in, block_data, block);
+
+            let value_out = &mut values_out[block];
 
             if &new_out != value_out {
                 changed = true;
-                values_out.insert(*block, new_out);
+                *value_out = new_out;
             }
         }
 
