@@ -1,4 +1,5 @@
 mod asm;
+mod mir;
 mod x86;
 
 use asm::{Address, BaseAddr, Instruction, InstructionKind, Label, Register};
@@ -65,7 +66,13 @@ fn example() -> Vec<Instruction> {
 }
 
 fn main() {
-    let code = Assembler::assemble_code(example());
+    let asm = example();
+
+    for ins in &asm {
+        println!("{}", ins);
+    }
+
+    let code = Assembler::assemble_code(asm);
 
     let mut object = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
 
