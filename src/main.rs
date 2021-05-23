@@ -69,7 +69,8 @@ fn example() -> Vec<Instruction> {
 
 fn main() {
     let graph = mir::example();
-    println!("{:?}", dataflow::dataflow(&graph));
+
+    dataflow::ReachableDefs::new(&graph).run();
 
     let asm = example();
 
