@@ -30,7 +30,7 @@ impl DefSet {
     }
 }
 
-pub struct ReachableDefs<'flow> {
+pub struct ReachingDefs<'flow> {
     definitions: Box<[Def]>,
     local_defsets: IndexMap<Local, DefSet>,
     preds: IndexMap<Block, Vec<Block>>,
@@ -38,7 +38,7 @@ pub struct ReachableDefs<'flow> {
     fn_def: &'flow FnDef,
 }
 
-impl<'flow> ReachableDefs<'flow> {
+impl<'flow> ReachingDefs<'flow> {
     pub fn new(fn_def: &'flow FnDef) -> Self {
         let mut definitions = Vec::new();
         let mut local_defs = Vec::new();

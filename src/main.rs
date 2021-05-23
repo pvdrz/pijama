@@ -70,10 +70,14 @@ fn example() -> Vec<Instruction> {
 fn main() {
     let graph = mir::example();
 
-    dataflow::ReachableDefs::new(&graph).run();
+    println!("Reaching definitions:");
+    dataflow::ReachingDefs::new(&graph).run();
+    println!("\nLive variables:");
+    dataflow::LiveVariable::new(&graph).run();
 
     let asm = example();
 
+    println!("\nPseudo-Assembly:");
     for ins in &asm {
         println!("{}", ins);
     }
