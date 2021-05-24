@@ -69,8 +69,10 @@ fn example() -> Vec<Instruction> {
 
 fn main() {
     let graph = mir::example();
+    println!("Control-Flow Graph:");
+    graph.dump();
 
-    println!("Reaching definitions:");
+    println!("\nReaching definitions:");
     dataflow::ReachingDefs::new(&graph).run();
     println!("\nLive variables:");
     dataflow::LiveVariable::new(&graph).run();

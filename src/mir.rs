@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::index::{Index, IndexMap};
 
 pub fn example() -> FnDef {
@@ -76,9 +78,41 @@ pub struct FnDef {
     pub blocks: IndexMap<Block, BlockData>,
 }
 
+impl FnDef {
+    pub fn dump(&self) {
+        println!("{{");
+
+        for (local, ty) in self.locals.iter() {
+            println!("  let {}: {};", local, ty);
+        }
+
+        for (block, block_data) in self.blocks.iter() {
+            println!("  {}: {{", block);
+
+            for stmt in block_data.statements.iter() {
+                println!("    {};", stmt);
+            }
+            println!("    {};", block_data.terminator);
+
+            println!("  }}");
+        }
+
+        println!("}}");
+    }
+}
+
 pub enum Ty {
     Int,
     Bool,
+}
+
+impl fmt::Display for Ty {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Int => "Int".fmt(f),
+            Self::Bool => "Bool".fmt(f),
+        }
+    }
 }
 
 pub struct BlockData {
@@ -88,6 +122,14 @@ pub struct BlockData {
 
 pub enum Statement {
     Assign { lhs: Local, rhs: Rvalue },
+}
+
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Statement::Assign { lhs, rhs } => write!(f, "{} = {}", lhs, rhs),
+        }
+    }
 }
 
 pub enum Terminator {
@@ -100,9 +142,18 @@ pub enum Terminator {
     Return(Local),
 }
 
-pub enum Operand {
-    Literal(i64),
-    Local(Local),
+impl fmt::Display for Terminator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Jump(target) => write!(f, "jump {}", target),
+            Self::JumpIf {
+                cond,
+                then_blk,
+                else_blk,
+            } => write!(f, "if {} then {} else {}", cond, then_blk, else_blk),
+            Self::Return(local) => write!(f, "return {}", local),
+        }
+    }
 }
 
 pub enum Rvalue {
@@ -114,9 +165,41 @@ pub enum Rvalue {
     },
 }
 
+impl fmt::Display for Rvalue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Use(op) => op.fmt(f),
+            Self::BinaryOp { op, lhs, rhs } => write!(f, "{} {} {}", lhs, op, rhs),
+        }
+    }
+}
+
+pub enum Operand {
+    Literal(i64),
+    Local(Local),
+}
+
+impl fmt::Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Literal(lit) => lit.fmt(f),
+            Self::Local(loc) => loc.fmt(f),
+        }
+    }
+}
+
 pub enum BinOp {
     Add,
     Le,
+}
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Add => "+".fmt(f),
+            Self::Le => "<=".fmt(f),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -132,9 +215,15 @@ impl Index for Local {
     }
 }
 
-impl std::fmt::Debug for Local {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Local {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "_{}", self.0)
+    }
+}
+
+impl fmt::Debug for Local {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -151,8 +240,14 @@ impl Index for Block {
     }
 }
 
-impl std::fmt::Debug for Block {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "bb{}", self.0)
+    }
+}
+
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
