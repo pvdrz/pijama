@@ -9,26 +9,7 @@ enum Def {
     Real { block: Block, stmt_index: usize },
 }
 
-#[derive(PartialEq, Eq)]
-struct DefSet(Box<[bool]>);
-
-impl DefSet {
-    fn union(&mut self, other: &Self) {
-        for (lhs, rhs) in self.0.iter_mut().zip(other.0.iter()) {
-            *lhs = *lhs || *rhs;
-        }
-    }
-
-    fn diff(&mut self, other: &Self) {
-        for (lhs, rhs) in self.0.iter_mut().zip(other.0.iter()) {
-            *lhs = *lhs && !*rhs;
-        }
-    }
-
-    fn insert(&mut self, index: usize) {
-        self.0[index] = true;
-    }
-}
+type DefSet = super::bit_set::BitSet<Def>;
 
 pub struct ReachingDefs<'flow> {
     definitions: Box<[Def]>,
@@ -95,12 +76,13 @@ impl<'flow> ReachingDefs<'flow> {
         }
 
         for local in fn_def.locals.keys() {
-            let local_defset = DefSet(
-                local_defs
-                    .iter()
-                    .map(|&local_def| local == local_def)
-                    .collect::<Box<[_]>>(),
-            );
+            let mut local_defset = DefSet::new(local_defs.len());
+
+            for (index, &local_def) in local_defs.iter().enumerate() {
+                if local == local_def {
+                    local_defset.insert(index);
+                }
+            }
 
             local_defsets.push(local_defset);
         }
@@ -118,7 +100,7 @@ impl<'flow> ReachingDefs<'flow> {
         match stmt {
             &Statement::Assign { lhs, .. } => {
                 let kill = &self.local_defsets[lhs];
-                def.diff(kill);
+                def.difference(kill);
 
                 let gen = self
                     .definitions
@@ -136,7 +118,7 @@ impl<'flow> ReachingDefs<'flow> {
     }
 
     fn empty_defset(&self) -> DefSet {
-        DefSet(vec![false; self.definitions.len()].into_boxed_slice())
+        DefSet::new(self.definitions.len())
     }
 
     pub fn run(&self) {
@@ -175,11 +157,10 @@ impl<'flow> ReachingDefs<'flow> {
 
         for (block, defset) in values_out.iter() {
             let defs = defset
-                .0
                 .iter()
                 .enumerate()
                 .filter_map(|(index, reachable)| {
-                    if *reachable {
+                    if reachable {
                         Some(&self.definitions[index])
                     } else {
                         None

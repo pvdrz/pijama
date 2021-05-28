@@ -1,3 +1,4 @@
+mod bit_set;
 mod live_variable;
 mod reaching_defs;
 

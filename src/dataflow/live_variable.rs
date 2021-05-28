@@ -9,30 +9,7 @@ enum Def {
     Real { block: Block, stmt_index: usize },
 }
 
-#[derive(PartialEq, Eq)]
-struct LiveSet(Box<[bool]>);
-
-impl LiveSet {
-    fn union(&mut self, other: &Self) {
-        for (lhs, rhs) in self.0.iter_mut().zip(other.0.iter()) {
-            *lhs = *lhs || *rhs;
-        }
-    }
-
-    fn diff(&mut self, other: &Self) {
-        for (lhs, rhs) in self.0.iter_mut().zip(other.0.iter()) {
-            *lhs = *lhs && !*rhs;
-        }
-    }
-
-    fn insert(&mut self, index: usize) {
-        self.0[index] = true;
-    }
-
-    fn remove(&mut self, index: usize) {
-        self.0[index] = false;
-    }
-}
+type LiveSet = super::bit_set::BitSet<Local>;
 
 pub struct LiveVariable<'flow> {
     succs: IndexMap<Block, Vec<Block>>,
@@ -122,7 +99,7 @@ impl<'flow> LiveVariable<'flow> {
     }
 
     fn empty_liveset(&self) -> LiveSet {
-        LiveSet(vec![false; self.fn_def.locals.len()].into_boxed_slice())
+        LiveSet::new(self.fn_def.locals.len())
     }
 
     pub fn run(&self) {
@@ -156,16 +133,17 @@ impl<'flow> LiveVariable<'flow> {
 
         for (block, defset) in values_in.iter() {
             let defs = defset
-                .0
                 .iter()
                 .enumerate()
-                .filter_map(|(index, alive)| {
-                    if *alive {
-                        Some(Local::new(index))
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(
+                    |(index, alive)| {
+                        if alive {
+                            Some(Local::new(index))
+                        } else {
+                            None
+                        }
+                    },
+                )
                 .collect::<Vec<_>>();
 
             println!("{:?}: {:?}", block, defs);
