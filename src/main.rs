@@ -71,6 +71,7 @@ fn main() {
     let graph = mir::example();
     println!("Control-Flow Graph:");
     graph.dump();
+    graph.graphviz().unwrap();
 
     println!("\nReaching definitions:");
     dataflow::ReachingDefs::new(&graph).run();

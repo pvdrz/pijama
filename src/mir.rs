@@ -99,6 +99,60 @@ impl FnDef {
 
         println!("}}");
     }
+
+    pub fn graphviz(&self) -> std::io::Result<()> {
+        use std::fs::File;
+        use std::io::{BufWriter, Write};
+
+        let mut buffer = BufWriter::new(File::create("./graph.dot")?);
+
+        writeln!(buffer, "digraph g {{")?;
+
+        let mut label = "locals".to_owned();
+        for (local, ty) in self.locals.iter() {
+            use std::fmt::Write;
+            write!(label, " | {}: {}", local, ty).unwrap();
+        }
+        label = label.replace("<", "\\<").replace(">", "\\>");
+
+        writeln!(buffer, "\"locals\" [")?;
+        write!(buffer, "label = \"{{ {} }}\"", label)?;
+        writeln!(buffer, "shape = \"record\"")?;
+        writeln!(buffer, "];")?;
+
+        for (block, block_data) in self.blocks.iter() {
+            writeln!(buffer, "\"{}\" [", block)?;
+
+            let mut label = format!("{}", block);
+            {
+                use std::fmt::Write;
+                for stmt in block_data.statements.iter() {
+                    write!(label, " | {};", stmt).unwrap();
+                }
+                write!(label, " | {};", block_data.terminator).unwrap();
+            }
+            label = label.replace("<", "\\<").replace(">", "\\>");
+
+            write!(buffer, "label = \"{{ {} }}\"", label)?;
+            writeln!(buffer, "shape = \"record\"")?;
+            writeln!(buffer, "];")?;
+
+            match block_data.terminator {
+                Terminator::Jump(target) => writeln!(buffer, "\"{}\" -> \"{}\";", block, target)?,
+                Terminator::JumpIf {
+                    then_blk, else_blk, ..
+                } => {
+                    writeln!(buffer, "\"{}\" -> \"{}\";", block, then_blk)?;
+                    writeln!(buffer, "\"{}\" -> \"{}\";", block, else_blk)?
+                }
+                Terminator::Return(_) => (),
+            }
+        }
+
+        writeln!(buffer, "}}")?;
+
+        Ok(())
+    }
 }
 
 pub enum Ty {
