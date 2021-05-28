@@ -76,6 +76,8 @@ fn main() {
     dataflow::ReachingDefs::new(&graph).run();
     println!("\nLive variables:");
     dataflow::LiveVariable::new(&graph).run();
+    println!("\nDominators:");
+    dataflow::Dominators::new(&graph).run();
 
     let asm = example();
 

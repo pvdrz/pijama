@@ -18,6 +18,19 @@ impl<T> BitSet<T> {
         }
     }
 
+    pub fn full(len: usize) -> Self {
+        let (mut bit_len, rem) = pos_and_offset(len);
+
+        if rem != 0 {
+            bit_len += 1;
+        }
+
+        Self {
+            bits: vec![0xffu8; bit_len].into_boxed_slice(),
+            marker: Default::default(),
+        }
+    }
+
     pub fn insert(&mut self, index: usize) {
         let (pos, offset) = pos_and_offset(index);
         self.bits[pos] |= 1 << offset;
