@@ -49,29 +49,29 @@ impl<'flow> ReachingDefs<'flow> {
                         local_defs.push(*lhs);
                     }
                 }
+            }
 
-                match block_data.terminator {
-                    Terminator::Jump(blk) => {
-                        let preds = &mut preds[blk];
-                        if let Err(index) = preds.binary_search(&block) {
-                            preds.insert(index, block);
-                        }
+            match block_data.terminator {
+                Terminator::Jump(blk) => {
+                    let preds = &mut preds[blk];
+                    if let Err(index) = preds.binary_search(&block) {
+                        preds.insert(index, block);
                     }
-                    Terminator::JumpIf {
-                        then_blk, else_blk, ..
-                    } => {
-                        let preds_then = &mut preds[then_blk];
-                        if let Err(index) = preds_then.binary_search(&block) {
-                            preds_then.insert(index, block);
-                        }
-
-                        let preds_else = &mut preds[else_blk];
-                        if let Err(index) = preds_else.binary_search(&block) {
-                            preds_else.insert(index, block);
-                        }
-                    }
-                    Terminator::Return(_) => {}
                 }
+                Terminator::JumpIf {
+                    then_blk, else_blk, ..
+                } => {
+                    let preds_then = &mut preds[then_blk];
+                    if let Err(index) = preds_then.binary_search(&block) {
+                        preds_then.insert(index, block);
+                    }
+
+                    let preds_else = &mut preds[else_blk];
+                    if let Err(index) = preds_else.binary_search(&block) {
+                        preds_else.insert(index, block);
+                    }
+                }
+                Terminator::Return(_) => {}
             }
         }
 
