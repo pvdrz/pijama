@@ -1,57 +1,17 @@
 use crate::{
     index::{Index, IndexMap},
-    mir::{Block, BlockData, FnDef, Terminator},
+    mir::{Block, BlockData, FnDef},
 };
 
 type DomSet = super::bit_set::BitSet<Block>;
 
 pub struct Dominators<'flow> {
-    preds: IndexMap<Block, Vec<Block>>,
-    entry: Block,
     fn_def: &'flow FnDef,
 }
 
 impl<'flow> Dominators<'flow> {
     pub fn new(fn_def: &'flow FnDef) -> Self {
-        let mut preds = IndexMap::<Block, Vec<Block>>::with_capacity(fn_def.blocks.len() + 1);
-
-        for _ in fn_def.blocks.keys() {
-            preds.push(vec![]);
-        }
-
-        let entry = preds.push(vec![]);
-        preds[Block(0)].push(entry);
-
-        for (block, block_data) in fn_def.blocks.iter() {
-            match block_data.terminator {
-                Terminator::Jump(blk) => {
-                    let preds = &mut preds[blk];
-                    if let Err(index) = preds.binary_search(&block) {
-                        preds.insert(index, block);
-                    }
-                }
-                Terminator::JumpIf {
-                    then_blk, else_blk, ..
-                } => {
-                    let preds_then = &mut preds[then_blk];
-                    if let Err(index) = preds_then.binary_search(&block) {
-                        preds_then.insert(index, block);
-                    }
-
-                    let preds_else = &mut preds[else_blk];
-                    if let Err(index) = preds_else.binary_search(&block) {
-                        preds_else.insert(index, block);
-                    }
-                }
-                Terminator::Return(_) => {}
-            }
-        }
-
-        Self {
-            preds,
-            entry,
-            fn_def,
-        }
+        Self { fn_def }
     }
 
     fn transfer_block(&self, dominators: &mut DomSet, _block_data: &BlockData, block: Block) {
@@ -59,27 +19,27 @@ impl<'flow> Dominators<'flow> {
     }
 
     fn new_domset(&self) -> DomSet {
-        DomSet::full(self.preds.len())
+        DomSet::full(self.fn_def.preds.len())
     }
 
     pub fn run(&self) {
-        let mut values_out = IndexMap::<Block, DomSet>::with_capacity(self.preds.len());
+        let mut values_out = IndexMap::<Block, DomSet>::with_capacity(self.fn_def.preds.len());
 
-        for _ in self.fn_def.blocks.keys() {
+        for _ in 0..self.fn_def.blocks.len() + 1 {
             values_out.push(self.new_domset());
         }
 
-        let mut entry_out = DomSet::new(self.preds.len());
-        entry_out.insert(self.entry.index());
+        let mut entry_out = DomSet::new(self.fn_def.preds.len());
+        entry_out.insert(self.fn_def.entry.index());
         values_out.push(entry_out);
-
+        dbg!(&values_out);
         while {
             let mut changed = false;
 
             for (block, block_data) in self.fn_def.blocks.iter() {
                 let mut new_out = self.new_domset();
 
-                for &pred in self.preds[block].iter() {
+                for &pred in self.fn_def.preds[block].iter() {
                     new_out.intersection(&values_out[pred]);
                 }
 
@@ -100,7 +60,7 @@ impl<'flow> Dominators<'flow> {
                 .iter()
                 .enumerate()
                 .filter_map(|(index, is_dom)| {
-                    if is_dom {
+                    if is_dom && index != block.index() {
                         Some(Block::new(index))
                     } else {
                         None

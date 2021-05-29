@@ -3,58 +3,15 @@ use crate::{
     mir::{Block, BlockData, FnDef, Local, Operand, Rvalue, Statement, Terminator},
 };
 
-#[derive(PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Debug)]
-enum Def {
-    Dummy(Local),
-    Real { block: Block, stmt_index: usize },
-}
-
 type LiveSet = super::bit_set::BitSet<Local>;
 
 pub struct LiveVariable<'flow> {
-    succs: IndexMap<Block, Vec<Block>>,
-    exit: Block,
     fn_def: &'flow FnDef,
 }
 
 impl<'flow> LiveVariable<'flow> {
     pub fn new(fn_def: &'flow FnDef) -> Self {
-        let mut succs = IndexMap::<Block, Vec<Block>>::with_capacity(fn_def.blocks.len() + 1);
-
-        for _ in fn_def.blocks.keys() {
-            succs.push(vec![]);
-        }
-
-        let exit = succs.push(vec![]);
-
-        for (block, block_data) in fn_def.blocks.iter() {
-            let succs = &mut succs[block];
-            match block_data.terminator {
-                Terminator::Jump(blk) => {
-                    if let Err(index) = succs.binary_search(&blk) {
-                        succs.insert(index, blk);
-                    }
-                }
-                Terminator::JumpIf {
-                    then_blk, else_blk, ..
-                } => {
-                    if let Err(index) = succs.binary_search(&then_blk) {
-                        succs.insert(index, then_blk);
-                    }
-
-                    if let Err(index) = succs.binary_search(&else_blk) {
-                        succs.insert(index, else_blk);
-                    }
-                }
-                Terminator::Return(_) => succs.push(exit),
-            }
-        }
-
-        Self {
-            succs,
-            exit,
-            fn_def,
-        }
+        Self { fn_def }
     }
 
     fn transfer_stmt(&self, live: &mut LiveSet, stmt: &Statement) {
@@ -103,9 +60,9 @@ impl<'flow> LiveVariable<'flow> {
     }
 
     pub fn run(&self) {
-        let mut values_in = IndexMap::<Block, LiveSet>::with_capacity(self.succs.len());
+        let mut values_in = IndexMap::<Block, LiveSet>::with_capacity(self.fn_def.succs.len());
 
-        for _ in self.succs.keys() {
+        for _ in self.fn_def.succs.keys() {
             values_in.push(self.empty_liveset());
         }
 
@@ -115,7 +72,7 @@ impl<'flow> LiveVariable<'flow> {
             for (block, block_data) in self.fn_def.blocks.iter() {
                 let mut new_in = self.empty_liveset();
 
-                for &succ in self.succs[block].iter() {
+                for &succ in self.fn_def.succs[block].iter() {
                     new_in.union(&values_in[succ]);
                 }
 

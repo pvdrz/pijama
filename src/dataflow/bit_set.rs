@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct BitSet<T> {
     bits: Box<[u8]>,
     marker: std::marker::PhantomData<T>,
@@ -19,14 +19,13 @@ impl<T> BitSet<T> {
     }
 
     pub fn full(len: usize) -> Self {
-        let (mut bit_len, rem) = pos_and_offset(len);
-
+        let (bit_len, rem) = pos_and_offset(len);
+        let mut bits = vec![0xffu8; bit_len];
         if rem != 0 {
-            bit_len += 1;
+            bits.push((1u8 << rem) - 1);
         }
-
         Self {
-            bits: vec![0xffu8; bit_len].into_boxed_slice(),
+            bits: bits.into_boxed_slice(),
             marker: Default::default(),
         }
     }

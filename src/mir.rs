@@ -3,22 +3,19 @@ use std::fmt;
 use crate::index::{Index, IndexMap};
 
 pub fn example() -> FnDef {
-    let mut fn_def = FnDef {
-        arity: 1,
-        locals: IndexMap::new(),
-        blocks: IndexMap::new(),
-    };
+    let mut locals = IndexMap::new();
+    let mut blocks = IndexMap::new();
 
-    let x = fn_def.locals.push(Ty::Int);
-    let r = fn_def.locals.push(Ty::Int);
-    let c = fn_def.locals.push(Ty::Bool);
+    let x = locals.push(Ty::Int);
+    let r = locals.push(Ty::Int);
+    let c = locals.push(Ty::Bool);
 
     let bb0 = Block(0);
     let bb1 = Block(1);
     let bb2 = Block(2);
     let bb3 = Block(3);
 
-    fn_def.blocks.push(BlockData {
+    blocks.push(BlockData {
         statements: vec![Statement::Assign {
             lhs: r,
             rhs: Rvalue::Use(Operand::Literal(0)),
@@ -26,7 +23,7 @@ pub fn example() -> FnDef {
         terminator: Terminator::Jump(bb1),
     });
 
-    fn_def.blocks.push(BlockData {
+    blocks.push(BlockData {
         statements: vec![Statement::Assign {
             lhs: c,
             rhs: Rvalue::BinaryOp {
@@ -42,12 +39,12 @@ pub fn example() -> FnDef {
         },
     });
 
-    fn_def.blocks.push(BlockData {
+    blocks.push(BlockData {
         statements: vec![],
         terminator: Terminator::Return(r),
     });
 
-    fn_def.blocks.push(BlockData {
+    blocks.push(BlockData {
         statements: vec![
             Statement::Assign {
                 lhs: r,
@@ -69,16 +66,100 @@ pub fn example() -> FnDef {
         terminator: Terminator::Jump(bb1),
     });
 
-    fn_def
+    FnDef::new(1, locals, blocks)
 }
 
 pub struct FnDef {
     pub arity: usize,
     pub locals: IndexMap<Local, Ty>,
     pub blocks: IndexMap<Block, BlockData>,
+    pub preds: IndexMap<Block, Vec<Block>>,
+    pub succs: IndexMap<Block, Vec<Block>>,
+    pub entry: Block,
+    pub exit: Block,
 }
 
 impl FnDef {
+    pub fn new(
+        arity: usize,
+        locals: IndexMap<Local, Ty>,
+        blocks: IndexMap<Block, BlockData>,
+    ) -> Self {
+        let mut preds = IndexMap::new();
+        let mut succs = IndexMap::new();
+
+        for _ in blocks.keys() {
+            preds.push(vec![]);
+            succs.push(vec![]);
+        }
+
+        let exit = preds.push(vec![]);
+        succs.push(vec![]);
+
+        let entry = preds.push(vec![]);
+        succs.push(vec![Block(0)]);
+        preds[Block(0)].push(entry);
+
+        for (block, data) in blocks.iter() {
+            let succs = &mut succs[block];
+
+            match data.terminator {
+                Terminator::Jump(target) => {
+                    if let Err(index) = succs.binary_search(&target) {
+                        succs.insert(index, target);
+                    }
+
+                    let preds = &mut preds[target];
+                    if let Err(index) = preds.binary_search(&block) {
+                        preds.insert(index, block);
+                    }
+                }
+                Terminator::JumpIf {
+                    then_blk, else_blk, ..
+                } => {
+                    if let Err(index) = succs.binary_search(&then_blk) {
+                        succs.insert(index, then_blk);
+                    }
+                    if let Err(index) = succs.binary_search(&else_blk) {
+                        succs.insert(index, else_blk);
+                    }
+
+                    {
+                        let preds = &mut preds[then_blk];
+                        if let Err(index) = preds.binary_search(&block) {
+                            preds.insert(index, block);
+                        }
+                    }
+                    {
+                        let preds = &mut preds[else_blk];
+                        if let Err(index) = preds.binary_search(&block) {
+                            preds.insert(index, block);
+                        }
+                    }
+                }
+                Terminator::Return(_) => {
+                    if let Err(index) = succs.binary_search(&exit) {
+                        succs.insert(index, exit);
+                    }
+
+                    let preds = &mut preds[exit];
+                    if let Err(index) = preds.binary_search(&block) {
+                        preds.insert(index, block);
+                    }
+                }
+            }
+        }
+
+        Self {
+            arity,
+            locals,
+            blocks,
+            preds,
+            succs,
+            entry,
+            exit,
+        }
+    }
     pub fn dump(&self) {
         println!("{{");
 

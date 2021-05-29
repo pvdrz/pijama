@@ -1,6 +1,6 @@
 use crate::{
     index::IndexMap,
-    mir::{Block, BlockData, FnDef, Local, Statement, Terminator},
+    mir::{Block, BlockData, FnDef, Local, Statement},
 };
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Debug)]
@@ -14,8 +14,6 @@ type DefSet = super::bit_set::BitSet<Def>;
 pub struct ReachingDefs<'flow> {
     definitions: Box<[Def]>,
     local_defsets: IndexMap<Local, DefSet>,
-    preds: IndexMap<Block, Vec<Block>>,
-    entry: Block,
     fn_def: &'flow FnDef,
 }
 
@@ -23,16 +21,8 @@ impl<'flow> ReachingDefs<'flow> {
     pub fn new(fn_def: &'flow FnDef) -> Self {
         let mut definitions = Vec::new();
         let mut local_defs = Vec::new();
-        let mut preds = IndexMap::<Block, Vec<Block>>::with_capacity(fn_def.blocks.len() + 1);
 
         let mut local_defsets = IndexMap::<Local, DefSet>::with_capacity(fn_def.locals.len());
-
-        for _ in fn_def.blocks.keys() {
-            preds.push(vec![]);
-        }
-
-        let entry = preds.push(vec![]);
-        preds[Block(0)].push(entry);
 
         for local in fn_def.locals.keys().skip(fn_def.arity) {
             definitions.push(Def::Dummy(local));
@@ -49,29 +39,6 @@ impl<'flow> ReachingDefs<'flow> {
                         local_defs.push(*lhs);
                     }
                 }
-            }
-
-            match block_data.terminator {
-                Terminator::Jump(blk) => {
-                    let preds = &mut preds[blk];
-                    if let Err(index) = preds.binary_search(&block) {
-                        preds.insert(index, block);
-                    }
-                }
-                Terminator::JumpIf {
-                    then_blk, else_blk, ..
-                } => {
-                    let preds_then = &mut preds[then_blk];
-                    if let Err(index) = preds_then.binary_search(&block) {
-                        preds_then.insert(index, block);
-                    }
-
-                    let preds_else = &mut preds[else_blk];
-                    if let Err(index) = preds_else.binary_search(&block) {
-                        preds_else.insert(index, block);
-                    }
-                }
-                Terminator::Return(_) => {}
             }
         }
 
@@ -90,8 +57,6 @@ impl<'flow> ReachingDefs<'flow> {
         Self {
             definitions: definitions.into_boxed_slice(),
             local_defsets,
-            preds,
-            entry,
             fn_def,
         }
     }
@@ -122,13 +87,13 @@ impl<'flow> ReachingDefs<'flow> {
     }
 
     pub fn run(&self) {
-        let mut values_out = IndexMap::<Block, DefSet>::with_capacity(self.preds.len());
+        let mut values_out = IndexMap::<Block, DefSet>::with_capacity(self.fn_def.preds.len());
 
-        for _ in self.preds.keys() {
+        for _ in self.fn_def.preds.keys() {
             values_out.push(self.empty_defset());
         }
 
-        let entry_out = &mut values_out[self.entry];
+        let entry_out = &mut values_out[self.fn_def.entry];
         for i in 0..(self.local_defsets.len() - self.fn_def.arity) {
             entry_out.insert(i);
         }
@@ -139,7 +104,7 @@ impl<'flow> ReachingDefs<'flow> {
             for (block, block_data) in self.fn_def.blocks.iter() {
                 let mut new_out = self.empty_defset();
 
-                for &pred in self.preds[block].iter() {
+                for &pred in self.fn_def.preds[block].iter() {
                     new_out.union(&values_out[pred]);
                 }
 
