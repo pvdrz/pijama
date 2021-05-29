@@ -43,7 +43,7 @@ impl<K: Index, V> IndexMap<K, V> {
         self.inner.get_mut(key.index())
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = K> {
+    pub fn keys(&self) -> impl DoubleEndedIterator<Item = K> {
         (0..self.inner.len()).map(K::new)
     }
 
