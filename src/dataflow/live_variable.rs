@@ -29,6 +29,11 @@ impl<'flow> LiveVariable<'flow> {
                         live.insert(lhs_local.index());
                         live.insert(rhs_local.index());
                     }
+                    Rvalue::Phi(values) => {
+                        for (_, local) in values {
+                            live.insert(local.index());
+                        }
+                    }
                     _ => (),
                 }
             }

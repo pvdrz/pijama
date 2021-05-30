@@ -298,6 +298,7 @@ pub enum Rvalue {
         lhs: Operand,
         rhs: Operand,
     },
+    Phi(Vec<(Block, Local)>),
 }
 
 impl fmt::Display for Rvalue {
@@ -305,6 +306,17 @@ impl fmt::Display for Rvalue {
         match self {
             Self::Use(op) => op.fmt(f),
             Self::BinaryOp { op, lhs, rhs } => write!(f, "{} {} {}", lhs, op, rhs),
+            Self::Phi(values) => {
+                write!(f, "phi(")?;
+                let mut values = values.iter();
+                if let Some((block, local)) = values.next() {
+                    write!(f, "{}: {}", block, local)?;
+                    for (block, local) in values {
+                        write!(f, ",{}: {}", block, local)?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }
