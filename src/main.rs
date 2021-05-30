@@ -84,7 +84,7 @@ fn main() {
     println!("\nDominators:");
     dataflow::Dominators::new(&graph).run();
     println!("\nDominator Tree:");
-    dominators(&graph);
+    DominatorTreeBuilder::new(&graph).build();
 
     let asm = example();
 
@@ -118,112 +118,109 @@ fn main() {
     std::fs::write("./test.o", &bytes).unwrap();
 }
 
-fn dominators(fn_def: &FnDef) {
-    let mut n = 0;
+struct DominatorTreeBuilder<'build> {
+    fn_def: &'build FnDef,
+    dfnum: IndexMap<Block, usize>,
+    ancestor: HashMap<Block, Block>,
+    idom: HashMap<Block, Block>,
+    samedom: HashMap<Block, Block>,
+    vertex: Vec<Block>,
+    parent: HashMap<Block, Block>,
+    bucket: IndexMap<Block, HashSet<Block>>,
+    semi: HashMap<Block, Block>,
+}
+impl<'build> DominatorTreeBuilder<'build> {
+    fn new(fn_def: &'build FnDef) -> Self {
+        let len_blocks = fn_def.preds.len();
 
-    let mut dfnum = IndexMap::<Block, usize>::new();
-    let mut ancestor = HashMap::<Block, Block>::new();
-    let mut idom = HashMap::<Block, Block>::new();
-    let mut samedom = HashMap::<Block, Block>::new();
-    let mut vertex = BTreeMap::<usize, Block>::new();
-    let mut parent = HashMap::<Block, Block>::new();
-    let mut bucket = IndexMap::<Block, HashSet<Block>>::new();
-    let mut semi = HashMap::<Block, Block>::new();
+        let mut dfnum = IndexMap::<Block, usize>::with_capacity(len_blocks);
+        let mut bucket = IndexMap::<Block, HashSet<Block>>::with_capacity(len_blocks);
 
-    for _ in fn_def.preds.keys() {
-        dfnum.push(0);
-        bucket.push(Default::default());
+        for _ in 0..len_blocks {
+            dfnum.push(0);
+            bucket.push(Default::default());
+        }
+
+        Self {
+            fn_def,
+            dfnum,
+            ancestor: HashMap::with_capacity(len_blocks - 1),
+            idom: HashMap::with_capacity(len_blocks - 1),
+            samedom: HashMap::with_capacity(len_blocks - 1),
+            vertex: Vec::with_capacity(len_blocks),
+            parent: HashMap::with_capacity(len_blocks - 1),
+            bucket,
+            semi: HashMap::with_capacity(len_blocks - 1),
+        }
     }
 
-    dfs(
-        None,
-        fn_def.entry,
-        fn_def,
-        &mut dfnum,
-        &mut vertex,
-        &mut parent,
-        &mut n,
-    );
+    fn dfs(&mut self, pred: Option<Block>, block: Block) {
+        if self.dfnum[block] == 0 {
+            self.dfnum[block] = self.vertex.len();
+            self.vertex.push(block);
+            if let Some(pred) = pred {
+                self.parent.insert(block, pred);
+            }
 
-    for i in (1..n).rev() {
-        let n = vertex[&i];
-        let p = parent[&n];
-        let mut s = p;
+            for &succ in self.fn_def.succs[block].iter() {
+                self.dfs(Some(block), succ)
+            }
+        }
+    }
 
-        for &v in fn_def.preds[n].iter() {
-            let s_prime = if dfnum[v] <= dfnum[n] {
-                v
-            } else {
-                let a = ancestor_with_lowest_semi(v, &ancestor, &dfnum, &semi);
-                semi[&a]
-            };
+    fn ancestor_with_lowest_semi(&self, mut v: Block) -> Block {
+        let mut u = v;
+        while let Some(&a) = self.ancestor.get(&v) {
+            if self.dfnum[self.semi[&v]] < self.dfnum[self.semi[&u]] {
+                u = v;
+            }
+            v = a;
+        }
+        u
+    }
 
-            if dfnum[s_prime] < dfnum[s] {
-                s = s_prime;
+    fn build(mut self) -> HashMap<Block, Block> {
+        self.dfs(None, self.fn_def.entry);
+
+        for &n in self.vertex.iter().skip(1).rev() {
+            let p = self.parent[&n];
+            let mut s = p;
+
+            for &v in self.fn_def.preds[n].iter() {
+                let s_prime = if self.dfnum[v] <= self.dfnum[n] {
+                    v
+                } else {
+                    let a = self.ancestor_with_lowest_semi(v);
+                    self.semi[&a]
+                };
+
+                if self.dfnum[s_prime] < self.dfnum[s] {
+                    s = s_prime;
+                }
+            }
+
+            self.semi.insert(n, s);
+            self.bucket[s].insert(n);
+
+            self.ancestor.insert(n, p);
+
+            for &v in self.bucket[p].iter() {
+                let y = self.ancestor_with_lowest_semi(v);
+                if self.semi[&y] == self.semi[&v] {
+                    self.idom.insert(v, p);
+                } else {
+                    self.samedom.insert(v, y);
+                }
+            }
+            self.bucket[p].clear();
+        }
+
+        for n in self.vertex.iter().skip(1) {
+            if let Some(m) = self.samedom.get(n) {
+                self.idom.insert(*n, self.idom[m]);
             }
         }
 
-        semi.insert(n, s);
-        bucket[s].insert(n);
-
-        ancestor.insert(n, p);
-
-        for &v in bucket[p].iter() {
-            let y = ancestor_with_lowest_semi(v, &ancestor, &dfnum, &semi);
-            if semi[&y] == semi[&v] {
-                idom.insert(v, p);
-            } else {
-                samedom.insert(v, y);
-            }
-        }
-        bucket[p] = Default::default();
+        dbg!(self.idom)
     }
-
-    for i in 1..n {
-        let n = vertex[&i];
-        if let Some(m) = samedom.get(&n) {
-            idom.insert(n, idom[m]);
-        }
-    }
-
-    dbg!(idom);
-}
-
-fn dfs(
-    pred: Option<Block>,
-    block: Block,
-    fn_def: &FnDef,
-    dfnum: &mut IndexMap<Block, usize>,
-    vertex: &mut BTreeMap<usize, Block>,
-    parent: &mut HashMap<Block, Block>,
-    n: &mut usize,
-) {
-    if dfnum[block] == 0 {
-        dfnum[block] = *n;
-        vertex.insert(*n, block);
-        if let Some(pred) = pred {
-            parent.insert(block, pred);
-        }
-        *n += 1;
-
-        for &succ in fn_def.succs[block].iter() {
-            dfs(Some(block), succ, fn_def, dfnum, vertex, parent, n)
-        }
-    }
-}
-
-fn ancestor_with_lowest_semi(
-    mut v: Block,
-    ancestor: &HashMap<Block, Block>,
-    dfnum: &IndexMap<Block, usize>,
-    semi: &HashMap<Block, Block>,
-) -> Block {
-    let mut u = v;
-    while let Some(&a) = ancestor.get(&v) {
-        if dfnum[semi[&v]] < dfnum[semi[&u]] {
-            u = v;
-        }
-        v = a;
-    }
-    u
 }
