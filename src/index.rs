@@ -25,6 +25,18 @@ impl<K: Index, V> IndexMap<K, V> {
         }
     }
 
+    pub fn repeat(f: impl Fn() -> V, len: usize) -> Self {
+        let mut inner = Vec::with_capacity(len);
+        for _ in 0..len {
+            inner.push(f());
+        }
+
+        Self {
+            inner,
+            marker: PhantomData,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.inner.len()
     }

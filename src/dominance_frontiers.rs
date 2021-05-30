@@ -3,7 +3,18 @@ use crate::mir::{Block, FnDef};
 
 use std::collections::{HashMap, HashSet};
 
-pub struct DominatorTreeBuilder<'build> {
+pub fn dominance_frontiers(fn_def: &FnDef) -> HashMap<Block, Vec<Block>> {
+    let mut domtree_builder = DominatorTreeBuilder::new(fn_def);
+    let domtree = domtree_builder.build();
+
+    let frontiers = DominanceFrontierBuilder::new(fn_def, &domtree_builder.idoms, &domtree).build();
+    for (block, frontier) in &frontiers {
+        println!("{:?}; {:?}", block, frontier);
+    }
+    frontiers
+}
+
+struct DominatorTreeBuilder<'build> {
     fn_def: &'build FnDef,
     dfnum: IndexMap<Block, usize>,
     ancestors: HashMap<Block, Block>,
@@ -16,7 +27,7 @@ pub struct DominatorTreeBuilder<'build> {
 }
 
 impl<'build> DominatorTreeBuilder<'build> {
-    pub fn new(fn_def: &'build FnDef) -> Self {
+    fn new(fn_def: &'build FnDef) -> Self {
         let mut len_blocks = fn_def.preds.len();
 
         let mut dfnum = IndexMap::<Block, usize>::with_capacity(len_blocks);
@@ -67,7 +78,7 @@ impl<'build> DominatorTreeBuilder<'build> {
         result
     }
 
-    pub fn build(mut self) -> HashMap<Block, Block> {
+    pub fn build(&mut self) -> IndexMap<Block, Vec<Block>> {
         self.dfs(None, self.fn_def.entry);
 
         for &block in self.vertices.iter().skip(1).rev() {
@@ -109,6 +120,76 @@ impl<'build> DominatorTreeBuilder<'build> {
             }
         }
 
-        dbg!(self.idoms)
+        let mut domtree = IndexMap::repeat(Vec::new, self.vertices.len());
+
+        for (&block, &idom) in self.idoms.iter() {
+            domtree[idom].push(block);
+        }
+
+        domtree
+    }
+}
+
+struct DominanceFrontierBuilder<'build> {
+    fn_def: &'build FnDef,
+    idoms: &'build HashMap<Block, Block>,
+    domtree: &'build IndexMap<Block, Vec<Block>>,
+    frontiers: HashMap<Block, Vec<Block>>,
+}
+
+impl<'build> DominanceFrontierBuilder<'build> {
+    fn new(
+        fn_def: &'build FnDef,
+        idoms: &'build HashMap<Block, Block>,
+        domtree: &'build IndexMap<Block, Vec<Block>>,
+    ) -> Self {
+        Self {
+            fn_def,
+            idoms,
+            domtree,
+            frontiers: HashMap::with_capacity(fn_def.preds.len()),
+        }
+    }
+
+    fn dominates(&self, dom: Block, mut block: Block) -> bool {
+        while let Some(&idom) = self.idoms.get(&block) {
+            if dom == idom {
+                return true;
+            } else {
+                block = idom;
+            }
+        }
+
+        false
+    }
+
+    fn compute_frontier(&mut self, n: Block) {
+        let mut s = Vec::new();
+
+        for y in self.fn_def.succs[n].iter() {
+            if self.idoms[y] != n {
+                if let Err(index) = s.binary_search(y) {
+                    s.insert(index, *y);
+                }
+            }
+        }
+
+        for &c in self.domtree[n].iter() {
+            self.compute_frontier(c);
+            for &w in self.frontiers[&c].iter() {
+                if !self.dominates(n, w) {
+                    if let Err(index) = s.binary_search(&w) {
+                        s.insert(index, w);
+                    }
+                }
+            }
+        }
+
+        self.frontiers.insert(n, s);
+    }
+
+    fn build(mut self) -> HashMap<Block, Vec<Block>> {
+        self.compute_frontier(self.fn_def.entry);
+        self.frontiers
     }
 }

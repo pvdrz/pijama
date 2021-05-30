@@ -1,6 +1,6 @@
 mod asm;
 mod dataflow;
-mod dominator_tree;
+mod dominance_frontiers;
 mod index;
 mod mir;
 mod x86;
@@ -80,8 +80,8 @@ fn main() {
     dataflow::LiveVariable::new(&graph).run();
     println!("\nDominators:");
     dataflow::Dominators::new(&graph).run();
-    println!("\nDominator Tree:");
-    dominator_tree::DominatorTreeBuilder::new(&graph).build();
+    println!("\nDominance Frontiers:");
+    dominance_frontiers::dominance_frontiers(&graph);
 
     let asm = example();
 
