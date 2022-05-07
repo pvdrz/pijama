@@ -37,6 +37,7 @@ impl<'flow> LiveVariable<'flow> {
                     _ => (),
                 }
             }
+            Statement::Nop => {}
         }
     }
     fn transfer_term(&self, live: &mut LiveSet, term: &Terminator) {

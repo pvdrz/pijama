@@ -3,15 +3,22 @@ use crate::mir::{Block, FnDef};
 
 use std::collections::{HashMap, HashSet};
 
-pub fn dominance_frontiers(fn_def: &FnDef) -> HashMap<Block, Vec<Block>> {
+pub fn dominance_frontiers(
+    fn_def: &FnDef,
+) -> (HashMap<Block, Vec<Block>>, IndexMap<Block, Vec<Block>>) {
     let mut domtree_builder = DominatorTreeBuilder::new(fn_def);
     let domtree = domtree_builder.build();
+    println!("\nDominator Tree:");
+    for (block, children) in domtree.iter() {
+        println!("{:?}: {:?}", block, children);
+    }
 
     let frontiers = DominanceFrontierBuilder::new(fn_def, &domtree_builder.idoms, &domtree).build();
+    println!("\nDominance Frontiers:");
     for (block, frontier) in &frontiers {
-        println!("{:?}; {:?}", block, frontier);
+        println!("{:?}: {:?}", block, frontier);
     }
-    frontiers
+    (frontiers, domtree)
 }
 
 struct DominatorTreeBuilder<'build> {

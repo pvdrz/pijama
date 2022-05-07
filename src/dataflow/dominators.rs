@@ -32,7 +32,7 @@ impl<'flow> Dominators<'flow> {
         let mut entry_out = DomSet::new(self.fn_def.preds.len());
         entry_out.insert(self.fn_def.entry.index());
         values_out.push(entry_out);
-        dbg!(&values_out);
+
         while {
             let mut changed = false;
 

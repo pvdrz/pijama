@@ -65,6 +65,13 @@ impl<K: Index, V> IndexMap<K, V> {
             .enumerate()
             .map(|(index, value)| (K::new(index), value))
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut V)> {
+        self.inner
+            .iter_mut()
+            .enumerate()
+            .map(|(index, value)| (K::new(index), value))
+    }
 }
 
 impl<K: Index, V> std::ops::Index<K> for IndexMap<K, V> {

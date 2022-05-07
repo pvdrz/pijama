@@ -38,6 +38,7 @@ impl<'flow> ReachingDefs<'flow> {
                         definitions.push(def);
                         local_defs.push(*lhs);
                     }
+                    Statement::Nop => {}
                 }
             }
         }
@@ -73,6 +74,7 @@ impl<'flow> ReachingDefs<'flow> {
                     .unwrap();
                 def.insert(gen);
             }
+            Statement::Nop => {}
         }
     }
 

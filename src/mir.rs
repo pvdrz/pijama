@@ -2,6 +2,123 @@ use std::fmt;
 
 use crate::index::{Index, IndexMap};
 
+pub fn appel_example() -> FnDef {
+    let mut locals = IndexMap::new();
+    let mut blocks = IndexMap::new();
+
+    let i = locals.push(Ty::Int);
+    let j = locals.push(Ty::Int);
+    let k = locals.push(Ty::Int);
+    let c1 = locals.push(Ty::Bool);
+    let c2 = locals.push(Ty::Bool);
+
+    let bb1 = Block(0);
+    let bb2 = Block(1);
+    let bb3 = Block(2);
+    let bb4 = Block(3);
+    let bb5 = Block(4);
+    let bb6 = Block(5);
+    let bb7 = Block(6);
+
+    blocks.push(BlockData {
+        statements: vec![
+            Statement::Assign {
+                lhs: i,
+                rhs: Rvalue::Use(Operand::Literal(1)),
+            },
+            Statement::Assign {
+                lhs: j,
+                rhs: Rvalue::Use(Operand::Literal(1)),
+            },
+            Statement::Assign {
+                lhs: k,
+                rhs: Rvalue::Use(Operand::Literal(0)),
+            },
+        ],
+        terminator: Terminator::Jump(bb2),
+    });
+
+    blocks.push(BlockData {
+        statements: vec![Statement::Assign {
+            lhs: c1,
+            rhs: Rvalue::BinaryOp {
+                op: BinOp::Le,
+                lhs: Operand::Local(k),
+                rhs: Operand::Literal(100),
+            },
+        }],
+        terminator: Terminator::JumpIf {
+            cond: Operand::Local(c1),
+            then_blk: bb3,
+            else_blk: bb4,
+        },
+    });
+
+    blocks.push(BlockData {
+        statements: vec![Statement::Assign {
+            lhs: c2,
+            rhs: Rvalue::BinaryOp {
+                op: BinOp::Le,
+                lhs: Operand::Local(j),
+                rhs: Operand::Literal(20),
+            },
+        }],
+        terminator: Terminator::JumpIf {
+            cond: Operand::Local(c2),
+            then_blk: bb5,
+            else_blk: bb6,
+        },
+    });
+
+    blocks.push(BlockData {
+        statements: vec![],
+        terminator: Terminator::Return(j),
+    });
+
+    blocks.push(BlockData {
+        statements: vec![
+            Statement::Assign {
+                lhs: j,
+                rhs: Rvalue::Use(Operand::Local(i)),
+            },
+            Statement::Assign {
+                lhs: k,
+                rhs: Rvalue::BinaryOp {
+                    op: BinOp::Add,
+                    lhs: Operand::Local(k),
+                    rhs: Operand::Literal(1),
+                },
+            },
+        ],
+        terminator: Terminator::Jump(bb7),
+    });
+
+    blocks.push(BlockData {
+        statements: vec![
+            Statement::Assign {
+                lhs: j,
+                rhs: Rvalue::Use(Operand::Local(k)),
+            },
+            Statement::Assign {
+                lhs: k,
+                rhs: Rvalue::BinaryOp {
+                    op: BinOp::Add,
+                    lhs: Operand::Local(k),
+                    rhs: Operand::Literal(2),
+                },
+            },
+        ],
+        terminator: Terminator::Jump(bb7),
+    });
+
+    blocks.push(BlockData {
+        statements: vec![],
+        terminator: Terminator::Jump(bb2),
+    });
+
+    FnDef::new(0, locals, blocks)
+}
+
 pub fn example() -> FnDef {
     let mut locals = IndexMap::new();
     let mut blocks = IndexMap::new();
@@ -181,11 +298,11 @@ impl FnDef {
         println!("}}");
     }
 
-    pub fn graphviz(&self) -> std::io::Result<()> {
+    pub fn graphviz(&self, path: &str) -> std::io::Result<()> {
         use std::fs::File;
         use std::io::{BufWriter, Write};
 
-        let mut buffer = BufWriter::new(File::create("./graph.dot")?);
+        let mut buffer = BufWriter::new(File::create(path)?);
 
         writeln!(buffer, "digraph g {{")?;
 
@@ -236,6 +353,7 @@ impl FnDef {
     }
 }
 
+#[derive(Clone)]
 pub enum Ty {
     Int,
     Bool,
@@ -257,12 +375,14 @@ pub struct BlockData {
 
 pub enum Statement {
     Assign { lhs: Local, rhs: Rvalue },
+    Nop,
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::Assign { lhs, rhs } => write!(f, "{} = {}", lhs, rhs),
+            Statement::Nop => write!(f, "nop"),
         }
     }
 }
@@ -312,7 +432,7 @@ impl fmt::Display for Rvalue {
                 if let Some((block, local)) = values.next() {
                     write!(f, "{}: {}", block, local)?;
                     for (block, local) in values {
-                        write!(f, ",{}: {}", block, local)?;
+                        write!(f, ", {}: {}", block, local)?;
                     }
                 }
                 write!(f, ")")
