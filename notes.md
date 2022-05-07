@@ -8,6 +8,8 @@ achieve this. The plan would be to produce a `lib.o` object file containing a
 `start` function. Then we write a simple `main.c` file that calls this extern
 `start` function and prints its return value.
 
+## Creating an object file from scratch
+
 So to figure out how this `lib.o` should look like we will start by writing a
 `lib.c` first and create an object file from it:
 ```bash
