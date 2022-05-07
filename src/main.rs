@@ -1,8 +1,8 @@
 use std::{error::Error as StdError, fs::File, io::BufWriter};
 
 use object::{
-    write::{Object, SectionId, SymbolSection},
-    Architecture, BinaryFormat, Endianness, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
+    write::{Object, SectionId, StandardSection, SymbolSection},
+    Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
 };
 
 fn main() -> Result<(), Box<dyn StdError>> {
@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
 
     // Create the `.text` section.
-    let section = obj.add_section(vec![], b".text".to_vec(), SectionKind::Text);
+    let section = obj.section_id(StandardSection::Text);
 
     add_function(
         &mut obj,
