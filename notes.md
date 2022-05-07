@@ -152,3 +152,40 @@ why are there so many redundancies about binding in `object`.
 With all this we can build our `start` symbol and add it to the `.text`
 section. And we are done, we are able to produce a valid object file as a
 substitute for our original `lib.o` file.
+
+Just to be sure we got everything right we will add a second function to the
+`lib.c` file and try to replicate the object file. Here's the new `.text`
+section:
+```
+Disassembly of section .text:
+
+0000000000000000 <start>:
+   0:   55                      push   %rbp
+   1:   48 89 e5                mov    %rsp,%rbp
+   4:   b8 0a 00 00 00          mov    $0xa,%eax
+   9:   5d                      pop    %rbp
+   a:   c3                      ret
+   b:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+
+0000000000000010 <duplicate>:
+  10:   55                      push   %rbp
+  11:   48 89 e5                mov    %rsp,%rbp
+  14:   89 7d fc                mov    %edi,-0x4(%rbp)
+  17:   8b 45 fc                mov    -0x4(%rbp),%eax
+  1a:   c1 e0 01                shl    $0x1,%eax
+  1d:   5d                      pop    %rbp
+  1e:   c3                      ret
+```
+
+And here is the symbol table:
+```
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS lib.c
+     2: 0000000000000000     0 SECTION LOCAL  DEFAULT    2 .text
+     3: 0000000000000000    11 FUNC    GLOBAL DEFAULT    2 start
+     4: 0000000000000010    15 FUNC    GLOBAL DEFAULT    2 duplicate
+```
+
+As we can see the only different attributes are the value and the size. But we
+can reuse what we already did and just append a second symbol.

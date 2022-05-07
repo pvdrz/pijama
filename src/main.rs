@@ -44,6 +44,30 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let symbol_id = obj.add_symbol(symbol);
 
     obj.add_symbol_data(symbol_id, section, code, 16);
+    //
+    // The actual machine code we want to write
+    let code = &[
+        0x55, 0x48, 0x89, 0xe5, 0x89, 0x7d, 0xfc, 0x8b, 0x45, 0xfc, 0xc1, 0xe0, 0x01, 0x5d, 0xc3,
+    ];
+
+    let symbol = object::write::Symbol {
+        name: b"duplicate".to_vec(),
+        // It seems that `object` ignores this value so we can leave it be zero.
+        value: 0,
+        size: code.len() as u64,
+        kind: SymbolKind::Text,
+        scope: SymbolScope::Linkage,
+        weak: false,
+        section: SymbolSection::Section(section),
+        flags: SymbolFlags::Elf {
+            st_info: (bind << 4) + (ty & 0xf),
+            st_other: vis & 0x3,
+        },
+    };
+
+    let symbol_id = obj.add_symbol(symbol);
+
+    obj.add_symbol_data(symbol_id, section, code, 16);
 
     // Write the object file.
     obj.write_stream(file)?;
