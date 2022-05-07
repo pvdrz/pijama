@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
     // The `GLOBAL` binding flag.
     let bind = 1;
     // The `FUNC` type flag.
-    let ty = 4;
+    let ty = 2;
     // The `DEFAULT` visibility flag.
     let vis = 0;
 
