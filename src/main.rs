@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, fs::File};
+use std::{error::Error as StdError, fs::File, io::BufWriter};
 
 use object::{
     write::{Object, SymbolSection},
@@ -6,7 +6,7 @@ use object::{
 };
 
 fn main() -> Result<(), Box<dyn StdError>> {
-    let file = File::create("./lib_2.o")?;
+    let file = BufWriter::new(File::create("./lib_2.o")?);
 
     // We know which kind of object we're going to emit thanks to `file lib.o`.
     let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
