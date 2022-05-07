@@ -61,3 +61,92 @@ LSB or little-endian.
 The only compiler backend written in Rust that I know of is `cranelift`. Which
 has this `cranelift-object` crate to emit object files. This crate uses the
 `object` crate to achieve this so we are going to use that.
+
+Every ELF file is composed of an ELF header, a section header table and a
+program header table.
+
+We will ignore the ELF header as `object` manages that for us. We don't know
+much about this format but we know that we need to create a `.text` section
+with the function information so we should understand what a section is. We can
+inspect the section headers of our object file
+```bash
+$ readelf -S lib.o
+There are 9 section headers, starting at offset 0x178:
+
+Section Headers:
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   NULL             0000000000000000  00000000
+       0000000000000000  0000000000000000           0     0     0
+  [ 1] .strtab           STRTAB           0000000000000000  00000118
+       0000000000000059  0000000000000000           0     0     1
+  [ 2] .text             PROGBITS         0000000000000000  00000040
+       000000000000000b  0000000000000000  AX       0     0     16
+  [ 3] .comment          PROGBITS         0000000000000000  0000004b
+       0000000000000016  0000000000000001  MS       0     0     1
+  [ 4] .note.GNU-stack   PROGBITS         0000000000000000  00000061
+       0000000000000000  0000000000000000           0     0     1
+  [ 5] .eh_frame         X86_64_UNWIND    0000000000000000  00000068
+       0000000000000038  0000000000000000   A       0     0     8
+  [ 6] .rela.eh_frame    RELA             0000000000000000  00000100
+       0000000000000018  0000000000000018           8     5     8
+  [ 7] .llvm_addrsig     LOOS+0xfff4c03   0000000000000000  00000118
+       0000000000000000  0000000000000000   E       8     0     1
+  [ 8] .symtab           SYMTAB           0000000000000000  000000a0
+       0000000000000060  0000000000000018           1     3     8
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  D (mbind), l (large), p (processor specific)
+```
+
+There we can see our `.text` section but we cannot see `start` which seems to
+be some substructure inside the section. This is stored in the symbol table or
+`.symtab` section:
+```bash
+$ readelf -s lib.o
+
+Symbol table '.symtab' contains 4 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS lib.c
+     2: 0000000000000000     0 SECTION LOCAL  DEFAULT    2 .text
+     3: 0000000000000000    11 FUNC    GLOBAL DEFAULT    2 start
+```
+there we can see the `start` symbol with some of its properties. To create a
+symbol in `object` we need to provide its name, value and size which we already
+have from this last output, and several other properties that we don't know
+yet.
+
+The first one is the kind of the symbol. From the `object` documentation we can
+see that the kind text is used for executable code. Which is consistent with
+the fact that this symbol is in the `.text` section too, so we will use that.
+
+Then we need to know if the symbol should have weak binding or not. ELF has
+three binding modes: Global, local and weak so we can assume that this symbol
+does not have weak binding as the symbol table shows `GLOBAL` under the `Bind`
+column.
+
+We also need to know the section this symbol belongs to but we know that this
+is the `.text` section.
+
+Finally we need to know the symbol's flags. We don't know what those are but
+`object` provides a struct with two fields: `st_info` and `st_other`. After a
+quick googling session I found
+[this](https://docs.oracle.com/cd/E19683-01/816-1386/chapter6-79797/index.html)
+section in the Oracle's linker and libraries guide explaining both fields:
+
+`st_info` contains the symbol's type and binding properties. Which we know are
+`FUNC` and `GLOBAL` respectively from the symbol table. The global binding flag
+is `1` and the function type flag is `2` and we can build the `st_info` value
+as following: `(bind << 4) + (type & 0xf)`.
+
+`st_other` contains the symbol's visibility. We know that our symbol has
+`DEFAULT` visibility from the symbol table. The flag for default visibility is
+`0` and we can build the `st_other` value as following: `vis & 0x3`. I wonder
+why are there so many redundancies about binding in `object`.
+
+With all this we can build our `start` symbol and add it to the `.text`
+section. And we are done, we are able to produce a valid object file as a
+substitute for our original `lib.o` file.
