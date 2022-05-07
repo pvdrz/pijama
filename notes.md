@@ -45,3 +45,19 @@ Disassembly of section .text:
 Even better we even have the actual machine code for `start` on the second
 column: `55 48 89 e5 b8 0a 00 00 00 5d c3`. Now we need to figure out how to
 emit the rest of the object file and shove these bytes in the right place.
+
+To figure out the remaining parts of the object file we could try to understand
+what format uses:
+```bash
+$ file lib.o
+lib.o: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped
+```
+
+So, at least on Linux we use the Executable and Linkable Format or ELF.
+Additionally we know that this file is for the `x86_64` platform and that is
+encoding its binary data using least significant byte endianness, also known as
+LSB or little-endian.
+
+The only compiler backend written in Rust that I know of is `cranelift`. Which
+has this `cranelift-object` crate to emit object files. This crate uses the
+`object` crate to achieve this so we are going to use that.
