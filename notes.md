@@ -189,3 +189,138 @@ And here is the symbol table:
 
 As we can see the only different attributes are the value and the size. But we
 can reuse what we already did and just append a second symbol.
+
+## Generating machine code
+
+Now that we are able to produce our own ELF files, we can start thinking about
+writing an assembler to produce machine code.
+
+To do this, we need to understand the instruction format for `x86_64`. From the
+Intel and AMD developer manuals for the `x86` architecture we can obtain the
+format of the instructions:
+
+```
+┌──────────┬────────┬─────────┬─────┬──────────────┬───────────┐
+│ Prefixes │ Opcode │ Mod R/M │ SIB │ Displacement │ Immediate │
+└──────────┴────────┴────┬────┴──┬──┴──────────────┴───────────┘
+                         │       │
+                ┌────────┘       └──────────┐
+                ▼                           ▼
+    ┌─────┬────────────┬─────┐  ┌───────┬───────┬──────┐
+    │ Mod │ Reg/Opcode │ R/M │  │ Scale │ Index │ Base │
+    └─────┴────────────┴─────┘  └───────┴───────┴──────┘
+```
+Every instruction in the `x86` instruction set has this format. Some parts are
+optional and others have variable length.
+
+First, we have the `Prefixes`, for now the most important prefix is the `REX`
+prefix which is used to enable 64-bit mode for certain instructions. This
+prefix also interacts with the `Mod R/M` part in subtle ways.
+
+The part that encodes which kind of instruction we are executing is the
+`Opcode`, which can use anything from 1 to 3 bytes.
+
+The `Mod R/M` and `SIB` parts encode an operand of the instruction, this
+operand resides in memory. These two parts specify how to access this operand.
+Some instructions don't require this.
+
+Sometimes the `Mod R/M` bytes are followed by a `Displacement` which can use 1,
+2 or 4 bytes.
+
+Finally if an instruction has an immediate operand it is encoded in the
+`Immediate` part which can use 1, 2 or 4 bytes.
+
+As an example, let's take a look at the `mov` instruction inside the `start`
+function at position `1`:
+```bash
+$ objdump -M intel -D lib_2.o
+Disassembly of section .text:
+
+0000000000000000 <start>:
+   0:	55                   	push   rbp
+   1:	48 89 e5             	mov    rbp,rsp
+   4:	b8 0a 00 00 00       	mov    eax,0xa
+   9:	5d                   	pop    rbp
+   a:	c3                   	ret
+   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+
+0000000000000010 <duplicate>:
+  10:	55                   	push   rbp
+  11:	48 89 e5             	mov    rbp,rsp
+  14:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
+  17:	8b 45 fc             	mov    eax,DWORD PTR [rbp-0x4]
+  1a:	c1 e0 01             	shl    eax,0x1
+  1d:	5d                   	pop    rbp
+  1e:	c3                   	ret
+```
+We added the `-M intel` flag to be sure we are using the Intel syntax and not
+the AT&T one. This is a major source of headaches because each syntax puts
+source and destination operands in a different order. The machine code is `48
+89 e5` and the instruction is `mov rbp,rsp`.
+
+Sadly, there are more than 30 different `mov` instructions in the Intel manual.
+But based on the fact that both operands are 64-bit registers and that it has
+this `89`. We can assume that the entry in the manual is this one:
+
+```
+┌───────────────┬───────────────┬───────┬─────────────┬─────────────────┬───────────────────┐
+│    Opcode     │  Instruction  │ Op/En │ 64-Bit Mode │ Compat/Leg Mode │ Description       │
+├───────────────┼───────────────┼───────┼─────────────┼─────────────────┼───────────────────┤
+│ REX.W + 89 /r │ MOV r/m64,r64 │  MR   │    Valid    │       N.E.      │ Move r64 to m/r64 │
+└───────────────┴───────────────┴───────┴─────────────┴─────────────────┴───────────────────┘
+```
+
+The `Opcode` column shows the form of the instruction. `REX.W` means that this
+instruction uses the `REX` prefix to change its operand size or semantics (most
+likely the former in this case). `+ 89` means that the `REX` prefix is followed
+by an `89` byte. Finally `/r` means that the `Mod R/M` part has a register
+operand and a register or memory location operand.
+
+The `Instruction` column is a bit clearer. Is saying that this instruction is
+usually shown as `MOV`, followed by a 64-bit register or memory operand and
+then a register operand. In our case, both operands are registers.
+
+The `Op/En` or operand encoding column specifies how the operands are encoded.
+`MR` means that the first operand is encoded in the `R/M` part and that the
+second operand is encoded in the `Reg` part.
+
+The `64-Bit Mode` column says if this instruction supports in 64-bit mode or not.
+
+Now we can try to reconstruct the instruction:
+
+The `REX` prefix is composed of three bits `W`, `R`, `B` and is written as a
+single byte with the following binary format `0b0100WR0B`. From the `Opcode`
+column we can infer that we only need to set the `W` bit. Meaning that the
+first byte of the instruction should be `0b01001000` or `0x48`.
+
+The second byte is easy as the `Opcode` column says it is `0x89`.
+
+The third byte is a `Mod R/M` byte and it must encode the `rbp` and `rsp`
+registers. We know that this `Mod R/M` is divided in three parts:
+- The `Mod` part which uses the bits 7-6.
+- The `Reg/Opcode` part which uses the bits 5-3.
+- The `R/M` part which uses the `2-0` bytes.
+
+We gave this byte intervals "backwards" because we are in little-endian.
+
+The `x86` manual has a table explaining how operands are encoded in these three
+part and from the `Op/En` column we know that the first operand must be encoded
+in the `R/M` part and the second in the `Reg` part.
+
+To encode the `bp` register as the first operand we set `Mod` to `11` and `R/M`
+to `101`. To encode the `sp` register as the second operand we set `Reg/Opcode`
+to `100`. Meaning that the whole byte is `0b11100101` or `0xe5`.
+
+So the machine code should be `48 89 e5`. Just like what we have in our
+disassembled object file.
+
+As we can see, the x86 instruction set is very complex and providing every
+single instruction in the set would be an almost impossible task. The good news
+is that given that we are writing our own assembler we can implement a subset
+of it.
+
+This subset will be inspired by RISC-V instruction set just because I've always
+been interested in RISC in general. This means that we won't have as much
+flexibility when emitting assembly code but it will be way simpler. Just to be
+clear, the assembly instructions might look like RISC ones but the assembler
+will still emit valid x86 machine code.
