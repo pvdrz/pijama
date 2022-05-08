@@ -364,12 +364,42 @@ The easiest operand kind to understand are immediates or `imm` which are just
 constant values. For now we can represent them with a `i64` type.
 
 Then we have registers or `reg`. The `x86_64` architecture has 16 general
-purpose registers in 64-bit mode: `rax`, `rbx`, `rcx`, `rdx`, `rbp`, `rsi`,
-`rdi`, `rsp` `r8`, ..., `r14` and `r15`. Additionally we have the `rip`
-register which holds the instruction pointer. There are other specific purpose
-registers that we will discuss if we need them.
+purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
+`rsi`, `rdi` `r8`, ..., `r14` and `r15`, we will only use the first 8 for now.
+Additionally we have the `rip` register which holds the instruction pointer.
+There are other specific purpose registers that we will discuss if we need
+them.
 
 Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that addresses are composed of a base address stored in a register
 and an offset stored in a 32-bit signed integer (we only use 32 bits because
 offsets are not supposed to be large).
+
+Now we are ready to encode those instructions as valid `x86_64` machine code.
+
+#### Load Immediate
+
+To load an immedate to a register we will use the `MOV r64, imm64` instruction
+which has the opcode `REX.W + B8+ rd io`. The first operand is encoded by
+adding an `rd` value representing the register to the `0xB8` opcode and setting the
+`REX.B` bit to zero. The second operand is encoded as the literal value.
+
+The `rd` value changes from 0 to 7 for the first 8 general purpose registers in
+the order they are written above.
+
+To check that we generated the right machine code we can generate another
+function in our object file which contains the instruction `loadi -1,reg` for
+every `reg` and then dissasemble it with `objdump`:
+
+```
+0000000000000020 <asm_test>:
+  20:   48 b8 ff ff ff ff ff ff ff ff   movabs rax,0xffffffffffffffff
+  2a:   48 b9 ff ff ff ff ff ff ff ff   movabs rcx,0xffffffffffffffff
+  34:   48 ba ff ff ff ff ff ff ff ff   movabs rdx,0xffffffffffffffff
+  3e:   48 bb ff ff ff ff ff ff ff ff   movabs rbx,0xffffffffffffffff
+  48:   48 bc ff ff ff ff ff ff ff ff   movabs rsp,0xffffffffffffffff
+  52:   48 bd ff ff ff ff ff ff ff ff   movabs rbp,0xffffffffffffffff
+  5c:   48 be ff ff ff ff ff ff ff ff   movabs rsi,0xffffffffffffffff
+  66:   48 bf ff ff ff ff ff ff ff ff   movabs rdi,0xffffffffffffffff
+```
+Everything looks in order, so we are done with this instruction.

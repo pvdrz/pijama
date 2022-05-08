@@ -2,6 +2,7 @@ mod asm;
 
 use std::{error::Error as StdError, fs::File, io::BufWriter};
 
+use asm::{Assembler, InstructionKind, Register};
 use object::{
     write::{Object, SectionId, StandardSection, SymbolSection},
     Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
@@ -35,6 +36,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
             0xc3,
         ],
     );
+
+    let mut assembler = Assembler::default();
+
+    for &dst in Register::ALL {
+        assembler.assemble_instruction(InstructionKind::LoadImm { src: -1, dst });
+    }
+
+    add_function(&mut obj, section, b"asm_test", &assembler.emit_code());
 
     // Write the object file.
     obj.write_stream(file)?;
