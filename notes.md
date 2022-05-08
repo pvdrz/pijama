@@ -301,7 +301,7 @@ The third byte is a `Mod R/M` byte and it must encode the `rbp` and `rsp`
 registers. We know that this `Mod R/M` is divided in three parts:
 - The `Mod` part which uses the bits 7-6.
 - The `Reg/Opcode` part which uses the bits 5-3.
-- The `R/M` part which uses the `2-0` bytes.
+- The `R/M` part which uses the bits 2-0.
 
 We gave this byte intervals "backwards" because we are in little-endian.
 
