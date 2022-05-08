@@ -548,3 +548,88 @@ instruction using all the possible register pairs and dissassembling it:
 ```
 
 We can move to the next instruction now.
+
+#### Store
+
+Store is the inverse of the load address instruction so it is reasonable to use
+the instruction `MOV r/m64,r64`. But this was the example instruction that we
+used to understand how to emit machine code. So it should be pretty straightforward.
+
+We have to set the `REX.W` byte to enable 64-bit mode, the first operand is
+encoded in the `R/M` part and that the second operand is encoded in the `Reg`
+part. This means that we can reuse most of the code that we did for the load
+address instruction because the arguments are flipped.
+
+We can test this instruction by doing the same we did for the load address instruction:
+
+```
+0000000000000240 <store_test>:
+ 240:   48 89 80 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rax
+ 247:   48 89 88 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rcx
+ 24e:   48 89 90 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rdx
+ 255:   48 89 98 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rbx
+ 25c:   48 89 a0 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rsp
+ 263:   48 89 a8 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rbp
+ 26a:   48 89 b0 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rsi
+ 271:   48 89 b8 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rdi
+ 278:   48 89 81 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rax
+ 27f:   48 89 89 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rcx
+ 286:   48 89 91 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rdx
+ 28d:   48 89 99 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rbx
+ 294:   48 89 a1 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rsp
+ 29b:   48 89 a9 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rbp
+ 2a2:   48 89 b1 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rsi
+ 2a9:   48 89 b9 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rdi
+ 2b0:   48 89 82 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rax
+ 2b7:   48 89 8a ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rcx
+ 2be:   48 89 92 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rdx
+ 2c5:   48 89 9a ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rbx
+ 2cc:   48 89 a2 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rsp
+ 2d3:   48 89 aa ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rbp
+ 2da:   48 89 b2 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rsi
+ 2e1:   48 89 ba ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rdi
+ 2e8:   48 89 83 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rax
+ 2ef:   48 89 8b ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rcx
+ 2f6:   48 89 93 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rdx
+ 2fd:   48 89 9b ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rbx
+ 304:   48 89 a3 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rsp
+ 30b:   48 89 ab ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rbp
+ 312:   48 89 b3 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rsi
+ 319:   48 89 bb ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rdi
+ 320:   48 89 84 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rax
+ 328:   48 89 8c 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rcx
+ 330:   48 89 94 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rdx
+ 338:   48 89 9c 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rbx
+ 340:   48 89 a4 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rsp
+ 348:   48 89 ac 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rbp
+ 350:   48 89 b4 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rsi
+ 358:   48 89 bc 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rdi
+ 360:   48 89 85 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rax
+ 367:   48 89 8d ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rcx
+ 36e:   48 89 95 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rdx
+ 375:   48 89 9d ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rbx
+ 37c:   48 89 a5 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rsp
+ 383:   48 89 ad ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rbp
+ 38a:   48 89 b5 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rsi
+ 391:   48 89 bd ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rdi
+ 398:   48 89 86 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rax
+ 39f:   48 89 8e ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rcx
+ 3a6:   48 89 96 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rdx
+ 3ad:   48 89 9e ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rbx
+ 3b4:   48 89 a6 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rsp
+ 3bb:   48 89 ae ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rbp
+ 3c2:   48 89 b6 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rsi
+ 3c9:   48 89 be ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rdi
+ 3d0:   48 89 87 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rax
+ 3d7:   48 89 8f ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rcx
+ 3de:   48 89 97 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdx
+ 3e5:   48 89 9f ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rbx
+ 3ec:   48 89 a7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsp
+ 3f3:   48 89 af ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rbp
+ 3fa:   48 89 b7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsi
+ 401:   48 89 bf ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdi
+```
+
+
+
+

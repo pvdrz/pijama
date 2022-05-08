@@ -84,7 +84,7 @@ impl Assembler {
         match kind {
             InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
-            InstructionKind::Store { src, dst } => todo!(),
+            InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
             InstructionKind::Push(_) => todo!(),
             InstructionKind::Pop(_) => todo!(),
             InstructionKind::Add { src, dst } => todo!(),
@@ -128,6 +128,31 @@ impl Assembler {
         }
 
         self.buf.extend_from_slice(&src.offset.to_le_bytes());
+    }
+
+    fn assemble_store(&mut self, src: Register, dst: Address) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+        let opcode = 0x89;
+        let mod_rm = mod_rm::ModRmBuilder::new()
+            .displacement()
+            .reg(dst.base as u8)
+            .rm(src as u8)
+            .build();
+
+        if let Register::Sp = src {
+            let sib = sib::SibBuilder::new()
+                .scale(Scale::One)
+                .index(src)
+                .base(src)
+                .build();
+
+            self.buf
+                .extend_from_slice(&[rex_prefix, opcode, mod_rm, sib]);
+        } else {
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        }
+
+        self.buf.extend_from_slice(&dst.offset.to_le_bytes());
     }
 
     pub fn emit_code(self) -> Vec<u8> {

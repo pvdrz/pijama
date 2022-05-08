@@ -64,6 +64,22 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     add_function(&mut obj, section, b"loada_test", &assembler.emit_code());
 
+    let mut assembler = Assembler::default();
+
+    for &src in Register::ALL {
+        for &base in Register::ALL {
+            assembler.assemble_instruction(InstructionKind::Store {
+                src,
+                dst: asm::Address {
+                    base,
+                    offset: 0xbeef,
+                },
+            });
+        }
+    }
+
+    add_function(&mut obj, section, b"store_test", &assembler.emit_code());
+
     // Write the object file.
     obj.write_stream(file)?;
 
