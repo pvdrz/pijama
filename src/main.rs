@@ -114,6 +114,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     add_function(&mut obj, section, b"jmp_test", &assembler.emit_code());
 
+    let mut assembler = Assembler::default();
+
+    for &scr in Register::ALL {
+        assembler.assemble_instruction(InstructionKind::JumpIfZero { trg: 0xbeef, scr });
+    }
+
+    add_function(&mut obj, section, b"jz_test", &assembler.emit_code());
+
     // Write the object file.
     obj.write_stream(file)?;
 

@@ -52,7 +52,7 @@ pub enum InstructionKind {
     Pop(Register),
     Add { src: Register, dst: Register },
     Jump(Address<()>),
-    JumpLez { addr: Address<()>, reg: Register },
+    JumpIfZero { trg: Imm32, scr: Register },
     Return,
     Call(Register),
 }
@@ -92,7 +92,7 @@ impl Assembler {
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::Jump(addr) => self.assemmble_jump(addr),
-            InstructionKind::JumpLez { addr, reg } => todo!(),
+            InstructionKind::JumpIfZero { trg, scr } => self.assemble_jump_if_zero(trg, scr),
             InstructionKind::Return => todo!(),
             InstructionKind::Call(_) => todo!(),
         }
@@ -192,6 +192,19 @@ impl Assembler {
             .build();
 
         self.buf.extend_from_slice(&[opcode, mod_rm]);
+    }
+
+    fn assemble_jump_if_zero(&mut self, trg: Imm32, scr: Register) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+        let opcode = 0x83;
+        let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(scr as u8).build();
+
+        // cmp scr,0x0
+        self.buf
+            .extend_from_slice(&[rex_prefix, opcode, mod_rm, 0x0]);
+        // je trg
+        self.buf.extend_from_slice(&[0x0F, 0x84]);
+        self.buf.extend_from_slice(&trg.to_le_bytes());
     }
 
     pub fn emit_code(self) -> Vec<u8> {

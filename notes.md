@@ -330,37 +330,37 @@ later.
 We will start with the following instructions
 
 ```
-┌────────────────┬─────────────────────┬────────────────────────────────────────────────────────────────────┐
-│      Name      │   Instruction       │     Description                                                    │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Load Immediate │ loadi im64,reg      │ Load the im64 value into reg.                                      │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Load Address   │ loada addr+im32,reg │ Load the contents of addr + im32 into reg.                         │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Store          │ store reg,addr+im32 │ Store the contents of reg into addr + im32.                        │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Push           │ push reg            │ Push the contents of reg into the stack.                           │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Pop            │ pop reg             │ Pop a value from the stack and put it in reg.                      │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Add            │ add reg1,reg2       │ Add the contents of reg1 to the contents of reg2.                  │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Jump           │ jmp addr            │ Jump to the value stored in addr+im16.                             │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Jump LEZ       │ jlez add,reg        │ Jump to the value stored in addr+im16 if the contents of reg <= 0. │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Return         │ ret                 │ Transfer control to the address in the top of the stack.           │
-├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Call           │ call reg            │ Transfer control to the address contained in reg.                  │
-└────────────────┴─────────────────────┴────────────────────────────────────────────────────────────────────┘
+┌────────────────┬──────────────────────┬──────────────────────────────────────────────────────────┐
+│      Name      │   Instruction        │     Description                                          │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Load Immediate │ loadi imm64,reg      │ Load the im64 value into reg.                            │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Load Address   │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.              │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Store          │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.             │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Push           │ push reg             │ Push the contents of reg into the stack.                 │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Pop            │ pop reg              │ Pop a value from the stack and put it in reg.            │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Add            │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.        │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Jump           │ jmp addr             │ Jump to the value stored in addr.                        │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Jump If Zero   │ jz imm32,reg         │ Jump imm32 bytes if the contents of reg are zero.        │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Return         │ ret                  │ Transfer control to the address in the top of the stack. │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Call           │ call reg             │ Transfer control to the address contained in reg.        │
+└────────────────┴──────────────────────┴──────────────────────────────────────────────────────────┘
 ```
 
 Before starting to generate machine code for these instructions we need to
 clearly define their operands.
 
-The easiest operand kind to understand are the immediates `im32` and
-`im64` which are just constant signed integer values. We represent them with
-the `i32` and `i64` types.
+The easiest operand kind to understand are the immediates `imm32` and `imm64`
+which are just constant signed integer values. We represent them with the `i32`
+and `i64` types.
 
 Then we have registers or `reg`. The `x86_64` architecture has 16 general
 purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
@@ -372,7 +372,7 @@ them.
 Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that base addresses are stored in a register, we will extend this
 later. The base address can be modified by adding an offset to the base
-address, this offset can only be an `im32` but not an `im64` (this is a
+address, this offset can only be an `imm32` but not an `imm64` (this is a
 limitation of the `x86` instruction set).
 
 Now we are ready to encode those instructions as valid `x86_64` machine code.
@@ -444,7 +444,7 @@ But now we need to know how to encode the offset.
 
 According to the AMD manual, setting `mod` to `0b01` or `0b10` allows us to
 encode the offset in the `Displacement` field. Given that our offsets are
-`im32`, they fit perfectly using a 4-byte length displacement field.
+`imm32`, they fit perfectly using a 4-byte length displacement field.
 
 Then we can use `r/m` to encode the actual register with almost same encoding
 as `reg`. The only difference is that when we are not in direct-register mode
@@ -765,3 +765,69 @@ We test this instruction in the same way as the other single operand instruction
  4fc:   ff e6                   jmp    rsi
  4fe:   ff e7                   jmp    rdi
 ```
+
+#### Jump If Zero
+
+This instruction performs a conditional jump if the value contained in the
+second operand is zero. The final position of the jump is in the first operand
+but this is relative to the current location (in other words, the position of
+the instruction pointer after reading this instruction).
+
+This is an interesting instruction because we cannot encode it as a single
+`x86_64` instruction. Conditional jumps in `x86` are done by first comparing
+two operands. The result of this comparison is stored in the special `RFLAGS`
+register. The actual conditional jump instruction uses the `RFLAGS` register to
+decide to jump or not. This `RFLAGS` register is a sequence of status flags
+indicating the result of the comparison.
+
+So the first thing we need to do emit a compare instruction between our operand
+and zero. We will use the `CMP r/m64, imm8` which has the opcode `REX.W + 83 /7
+ib`, encodes the first operand in the `r/m` field and the second operand as
+bytes at the end of the instruction. This `CMP` instruction substracts the
+second operand from the first and sets the status flags in the `RFLAGS`
+register based on the result of the substraction.
+
+We can use this `CMP` instruction with the second operand as zero and then use
+the `JE rel32` or jump if equal instruction which has the opcode `0F 84 cd` and
+encodes the operand by appending it after the `0x84` byte.
+
+In other words, we will emit the following code to encode our `jz imm32,reg`:
+
+```asm
+cmp  reg,0x0 // compare `reg` to zero.
+je   imm32   // if `reg == 0`, jump to `imm32`.
+```
+
+We test this instruction in the same way as the others:
+```
+0000000000000500 <jz_test>:
+ 500:   48 83 f8 00             cmp    rax,0x0
+ 504:   0f 84 ef be 00 00       je     c3f9 <jz_test+0xbef9>
+ 50a:   48 83 f9 00             cmp    rcx,0x0
+ 50e:   0f 84 ef be 00 00       je     c403 <jz_test+0xbf03>
+ 514:   48 83 fa 00             cmp    rdx,0x0
+ 518:   0f 84 ef be 00 00       je     c40d <jz_test+0xbf0d>
+ 51e:   48 83 fb 00             cmp    rbx,0x0
+ 522:   0f 84 ef be 00 00       je     c417 <jz_test+0xbf17>
+ 528:   48 83 fc 00             cmp    rsp,0x0
+ 52c:   0f 84 ef be 00 00       je     c421 <jz_test+0xbf21>
+ 532:   48 83 fd 00             cmp    rbp,0x0
+ 536:   0f 84 ef be 00 00       je     c42b <jz_test+0xbf2b>
+ 53c:   48 83 fe 00             cmp    rsi,0x0
+ 540:   0f 84 ef be 00 00       je     c435 <jz_test+0xbf35>
+ 546:   48 83 ff 00             cmp    rdi,0x0
+ 54a:   0f 84 ef be 00 00       je     c43f <jz_test+0xbf3f>
+```
+
+from the operand of the disassembled `je` instructions it is not clear that we
+are emitting the right bytes because `objdump` automatically tries to compute
+the absolute position of the jump. But we can check that every value is correct
+by doing a bit of arithmetic.
+
+The first instruction we emited is `jz rax,0xbeef`. For this instruction we
+have that the operand of `je` is `<jz_test+0xbef9>`, this reads as "the
+position obtained from adding `0xbef9` to the start of `jz_test`". We know that
+`jz_test` starts at `0x500` and that the current position is `0x50a` (the
+position immediately after the `je` instruction). In other words the, current
+position is `<jz_test+0x0a>`. Which means that the relative offset between the
+two positions is `0xbef9 - 0x0a` which is exactly `0xbeef`.
