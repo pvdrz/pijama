@@ -222,8 +222,8 @@ prefix also interacts with the `Mod R/M` part in subtle ways.
 The part that encodes which kind of instruction we are executing is the
 `Opcode`, which can use anything from 1 to 3 bytes.
 
-The `Mod R/M` and `SIB` parts encode an operand of the instruction, this
-operand resides in memory. These two parts specify how to access this operand.
+The `Mod R/M` and `SIB` bytes encode an operand of the instruction, this
+operand resides in memory. These two bytes specify how to access this operand.
 Some instructions don't require this.
 
 Sometimes the `Mod R/M` bytes are followed by a `Displacement` which can use 1,
@@ -275,7 +275,7 @@ this `89`. We can assume that the entry in the manual is this one:
 The `Opcode` column shows the form of the instruction. `REX.W` means that this
 instruction uses the `REX` prefix to change its operand size or semantics (most
 likely the former in this case). `+ 89` means that the `REX` prefix is followed
-by an `89` byte. Finally `/r` means that the `Mod R/M` part has a register
+by an `89` byte. Finally `/r` means that the `Mod R/M` byte has a register
 operand and a register or memory location operand.
 
 The `Instruction` column is a bit clearer. Is saying that this instruction is
@@ -283,8 +283,8 @@ usually shown as `MOV`, followed by a 64-bit register or memory operand and
 then a register operand. In our case, both operands are registers.
 
 The `Op/En` or operand encoding column specifies how the operands are encoded.
-`MR` means that the first operand is encoded in the `R/M` part and that the
-second operand is encoded in the `Reg` part.
+`MR` means that the first operand is encoded in the `r/m` field and that the
+second operand is encoded in the `reg` field.
 
 The `64-Bit Mode` column says if this instruction supports in 64-bit mode or not.
 
@@ -298,20 +298,20 @@ first byte of the instruction should be `0b01001000` or `0x48`.
 The second byte is easy as the `Opcode` column says it is `0x89`.
 
 The third byte is a `Mod R/M` byte and it must encode the `rbp` and `rsp`
-registers. We know that this `Mod R/M` is divided in three parts:
-- The `Mod` part which uses the bits 7-6.
-- The `Reg/Opcode` part which uses the bits 5-3.
-- The `R/M` part which uses the bits 2-0.
+registers. We know that this `Mod R/M` is divided in three fields:
+- The `mod` field which uses the bits 7-6.
+- The `reg` field which uses the bits 5-3.
+- The `r/m` field which uses the bits 2-0.
 
 We gave this byte intervals "backwards" because we are in little-endian.
 
 The `x86` manual has a table explaining how operands are encoded in these three
-part and from the `Op/En` column we know that the first operand must be encoded
-in the `R/M` part and the second in the `Reg` part.
+field and from the `Op/En` column we know that the first operand must be
+encoded in the `r/m` field and the second in the `reg` field.
 
-To encode the `bp` register as the first operand we set `Mod` to `11` and `R/M`
-to `101`. To encode the `sp` register as the second operand we set `Reg/Opcode`
-to `100`. Meaning that the whole byte is `0b11100101` or `0xe5`.
+To encode the `bp` register as the first operand we set `mod` to `0b11` and
+`r/m` to `0b101`. To encode the `sp` register as the second operand we set
+`reg` to `0b100`. Meaning that the whole byte is `0b11100101` or `0xe5`.
 
 So the machine code should be `48 89 e5`. Just like what we have in our
 disassembled object file.
@@ -410,32 +410,32 @@ To load something from an address to a register we will use the `MOV r64,r/m64`
 instruction which has the opcode `REX.W + 8B /r`, meaning that is pretty
 similar to the first `MOV` instruction that we encoded. However, this
 instruction encodes the operands in the reverse order inside the `Mod R/M`
-byte: The first operand uses the `reg` part and the second operand uses the
-`r/m` part.
+byte: The first operand uses the `reg` field and the second operand uses the
+`r/m` field.
 
 The AMD manual does a great work explaining the logic behind the `Mod R/M` byte
 encoding:
 
-- The `mod` part is used encode the addressing mode of an operand. The
+- The `mod` field is used encode the addressing mode of an operand. The
   direct-register mode is enabled by setting `mod` to `0b11`. Any value less
   than `0b11` uses an indirect-register mode. Direct in this context means that
   the contents of the register are the operand. Indirect means that the
   contents of the register are the address that stores the actual operand.
 
-- The `reg` part is used to specify a register operand most of the time.
+- The `reg` field is used to specify a register operand most of the time.
 
-- The `r/m` part is used to specify a register operand if the `mod` part is
+- The `r/m` field is used to specify a register operand if the `mod` field is
   `0b11`. If not it is used to encode a register or the presence of an `SIB`
   byte after the `Mod R/M` byte.
 
 From this information we can build a pretty cool builder for `Mod R/M` bytes.
-This has the advantage that we won't mistype or forget to set a part of the
+This has the advantage that we won't mistype or forget to set a field of the
 byte that easily.
 
 Going back to the `MOV` instruction, we know that the first operand goes in the
-`reg` part, and at least for this instruction it uses the same encoding as the
+`reg` field, and at least for this instruction it uses the same encoding as the
 `+rd` value we saw in the previous `MOV` instruction. The actual encoding for
-this part changes according to the instruction.
+this field changes according to the instruction.
 
 The second operand is a bit more interesting to encode because addresses are
 composed of a base address in a register and an offset. The operand has to use
@@ -452,11 +452,10 @@ the `0b100` value doesn't correspond to the `rsp` register but instead enables
 the `SIB` mode.
 
 However, we can use the `SIB` byte to specify the `rsp` register. As we saw
-before, the `SIB` byte is composed of three parts:
-
-- The `scale` part which uses the bits 7-6.
-- The `index` part which uses the bits 5-3.
-- The `base` part which uses the bits 2-0.
+before, the `SIB` byte is composed of three fields:
+- The `scale` field which uses the bits 7-6.
+- The `index` field which uses the bits 5-3.
+- The `base` field which uses the bits 2-0.
 
 This byte specifies an effective address that is computed as `scale * index +
 base` and given that the `Displacement` field is also included, the
@@ -556,8 +555,8 @@ the instruction `MOV r/m64,r64`. But this was the example instruction that we
 used to understand how to emit machine code. So it should be pretty straightforward.
 
 We have to set the `REX.W` byte to enable 64-bit mode, the first operand is
-encoded in the `R/M` part and that the second operand is encoded in the `Reg`
-part. This means that we can reuse most of the code that we did for the load
+encoded in the `r/m` field and that the second operand is encoded in the `reg`
+field. This means that we can reuse most of the code that we did for the load
 address instruction because the arguments are flipped.
 
 We can test this instruction by doing the same we did for the load address instruction:
@@ -629,7 +628,3 @@ We can test this instruction by doing the same we did for the load address instr
  3fa:   48 89 b7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsi
  401:   48 89 bf ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdi
 ```
-
-
-
-
