@@ -403,3 +403,148 @@ every `reg` and then dissasemble it with `objdump`:
   66:   48 bf ef be ad de 00 00 00 00   movabs rdi,0xdeadbeef
 ```
 Everything looks in order, so we are done with this instruction.
+
+#### Load Address
+
+To load something from an address to a register we will use the `MOV r64,r/m64`
+instruction which has the opcode `REX.W + 8B /r`, meaning that is pretty
+similar to the first `MOV` instruction that we encoded. However, this
+instruction encodes the operands in the reverse order inside the `Mod R/M`
+byte: The first operand uses the `reg` part and the second operand uses the
+`r/m` part.
+
+The AMD manual does a great work explaining the logic behind the `Mod R/M` byte
+encoding:
+
+- The `mod` part is used encode the addressing mode of an operand. The
+  direct-register mode is enabled by setting `mod` to `0b11`. Any value less
+  than `0b11` uses an indirect-register mode. Direct in this context means that
+  the contents of the register are the operand. Indirect means that the
+  contents of the register are the address that stores the actual operand.
+
+- The `reg` part is used to specify a register operand most of the time.
+
+- The `r/m` part is used to specify a register operand if the `mod` part is
+  `0b11`. If not it is used to encode a register or the presence of an `SIB`
+  byte after the `Mod R/M` byte.
+
+From this information we can build a pretty cool builder for `Mod R/M` bytes.
+This has the advantage that we won't mistype or forget to set a part of the
+byte that easily.
+
+Going back to the `MOV` instruction, we know that the first operand goes in the
+`reg` part, and at least for this instruction it uses the same encoding as the
+`+rd` value we saw in the previous `MOV` instruction. The actual encoding for
+this part changes according to the instruction.
+
+The second operand is a bit more interesting to encode because addresses are
+composed of a base address in a register and an offset. The operand has to use
+the indirect-register mode because we want the address that the register holds.
+But now we need to know how to encode the offset.
+
+According to the AMD manual, setting `mod` to `0b01` or `0b10` allows us to
+encode the offset in the `Displacement` field. Given that our offsets are
+32-bit long, they fit perfectly using a 4-byte length displacement field.
+
+Then we can use `r/m` to encode the actual register with almost same encoding
+as `reg`. The only difference is that when we are not in direct-register mode
+the `0b100` value doesn't correspond to the `rsp` register but instead enables
+the `SIB` mode.
+
+However, we can use the `SIB` byte to specify the `rsp` register. As we saw
+before, the `SIB` byte is composed of three parts:
+
+- The `scale` part which uses the bits 7-6.
+- The `index` part which uses the bits 5-3.
+- The `base` part which uses the bits 2-0.
+
+This byte specifies an effective address that is computed as `scale * index +
+base` and given that the `Displacement` field is also included, the
+displacement is added to this effective address.
+
+We would like to encode the `rsp` register as the effective address. There are
+some subtle differences but both `index` and `base` use the same encoding as
+`reg` except in these cases:
+
+- If `index` is set to `0b100`, then the actual index is zero.
+- If `base` is set to `0b101` and `r/m` is `0b00`, then the actual base is
+  zero.
+
+The `scale` field can only encode 4 possible scales: 1, 2, 4 and 8.
+
+With this information we can build the `rsp` register setting the `index` to
+zero, the `base` to the `rsp` register and the `scale` to 1 (we could use any
+scale because it is multiplied by the index which is zero).
+
+With this particular case solved. We are done encoding the load address
+instruction and we are ready to test it by emitting code that calls this
+instruction using all the possible register pairs and dissassembling it:
+```
+0000000000000070 <loada_test>:
+  70:   48 8b 80 ef be 00 00    mov    rax,QWORD PTR [rax+0xbeef]
+  77:   48 8b 81 ef be 00 00    mov    rax,QWORD PTR [rcx+0xbeef]
+  7e:   48 8b 82 ef be 00 00    mov    rax,QWORD PTR [rdx+0xbeef]
+  85:   48 8b 83 ef be 00 00    mov    rax,QWORD PTR [rbx+0xbeef]
+  8c:   48 8b 84 24 ef be 00 00         mov    rax,QWORD PTR [rsp+0xbeef]
+  94:   48 8b 85 ef be 00 00    mov    rax,QWORD PTR [rbp+0xbeef]
+  9b:   48 8b 86 ef be 00 00    mov    rax,QWORD PTR [rsi+0xbeef]
+  a2:   48 8b 87 ef be 00 00    mov    rax,QWORD PTR [rdi+0xbeef]
+  a9:   48 8b 88 ef be 00 00    mov    rcx,QWORD PTR [rax+0xbeef]
+  b0:   48 8b 89 ef be 00 00    mov    rcx,QWORD PTR [rcx+0xbeef]
+  b7:   48 8b 8a ef be 00 00    mov    rcx,QWORD PTR [rdx+0xbeef]
+  be:   48 8b 8b ef be 00 00    mov    rcx,QWORD PTR [rbx+0xbeef]
+  c5:   48 8b 8c 24 ef be 00 00         mov    rcx,QWORD PTR [rsp+0xbeef]
+  cd:   48 8b 8d ef be 00 00    mov    rcx,QWORD PTR [rbp+0xbeef]
+  d4:   48 8b 8e ef be 00 00    mov    rcx,QWORD PTR [rsi+0xbeef]
+  db:   48 8b 8f ef be 00 00    mov    rcx,QWORD PTR [rdi+0xbeef]
+  e2:   48 8b 90 ef be 00 00    mov    rdx,QWORD PTR [rax+0xbeef]
+  e9:   48 8b 91 ef be 00 00    mov    rdx,QWORD PTR [rcx+0xbeef]
+  f0:   48 8b 92 ef be 00 00    mov    rdx,QWORD PTR [rdx+0xbeef]
+  f7:   48 8b 93 ef be 00 00    mov    rdx,QWORD PTR [rbx+0xbeef]
+  fe:   48 8b 94 24 ef be 00 00         mov    rdx,QWORD PTR [rsp+0xbeef]
+ 106:   48 8b 95 ef be 00 00    mov    rdx,QWORD PTR [rbp+0xbeef]
+ 10d:   48 8b 96 ef be 00 00    mov    rdx,QWORD PTR [rsi+0xbeef]
+ 114:   48 8b 97 ef be 00 00    mov    rdx,QWORD PTR [rdi+0xbeef]
+ 11b:   48 8b 98 ef be 00 00    mov    rbx,QWORD PTR [rax+0xbeef]
+ 122:   48 8b 99 ef be 00 00    mov    rbx,QWORD PTR [rcx+0xbeef]
+ 129:   48 8b 9a ef be 00 00    mov    rbx,QWORD PTR [rdx+0xbeef]
+ 130:   48 8b 9b ef be 00 00    mov    rbx,QWORD PTR [rbx+0xbeef]
+ 137:   48 8b 9c 24 ef be 00 00         mov    rbx,QWORD PTR [rsp+0xbeef]
+ 13f:   48 8b 9d ef be 00 00    mov    rbx,QWORD PTR [rbp+0xbeef]
+ 146:   48 8b 9e ef be 00 00    mov    rbx,QWORD PTR [rsi+0xbeef]
+ 14d:   48 8b 9f ef be 00 00    mov    rbx,QWORD PTR [rdi+0xbeef]
+ 154:   48 8b a0 ef be 00 00    mov    rsp,QWORD PTR [rax+0xbeef]
+ 15b:   48 8b a1 ef be 00 00    mov    rsp,QWORD PTR [rcx+0xbeef]
+ 162:   48 8b a2 ef be 00 00    mov    rsp,QWORD PTR [rdx+0xbeef]
+ 169:   48 8b a3 ef be 00 00    mov    rsp,QWORD PTR [rbx+0xbeef]
+ 170:   48 8b a4 24 ef be 00 00         mov    rsp,QWORD PTR [rsp+0xbeef]
+ 178:   48 8b a5 ef be 00 00    mov    rsp,QWORD PTR [rbp+0xbeef]
+ 17f:   48 8b a6 ef be 00 00    mov    rsp,QWORD PTR [rsi+0xbeef]
+ 186:   48 8b a7 ef be 00 00    mov    rsp,QWORD PTR [rdi+0xbeef]
+ 18d:   48 8b a8 ef be 00 00    mov    rbp,QWORD PTR [rax+0xbeef]
+ 194:   48 8b a9 ef be 00 00    mov    rbp,QWORD PTR [rcx+0xbeef]
+ 19b:   48 8b aa ef be 00 00    mov    rbp,QWORD PTR [rdx+0xbeef]
+ 1a2:   48 8b ab ef be 00 00    mov    rbp,QWORD PTR [rbx+0xbeef]
+ 1a9:   48 8b ac 24 ef be 00 00         mov    rbp,QWORD PTR [rsp+0xbeef]
+ 1b1:   48 8b ad ef be 00 00    mov    rbp,QWORD PTR [rbp+0xbeef]
+ 1b8:   48 8b ae ef be 00 00    mov    rbp,QWORD PTR [rsi+0xbeef]
+ 1bf:   48 8b af ef be 00 00    mov    rbp,QWORD PTR [rdi+0xbeef]
+ 1c6:   48 8b b0 ef be 00 00    mov    rsi,QWORD PTR [rax+0xbeef]
+ 1cd:   48 8b b1 ef be 00 00    mov    rsi,QWORD PTR [rcx+0xbeef]
+ 1d4:   48 8b b2 ef be 00 00    mov    rsi,QWORD PTR [rdx+0xbeef]
+ 1db:   48 8b b3 ef be 00 00    mov    rsi,QWORD PTR [rbx+0xbeef]
+ 1e2:   48 8b b4 24 ef be 00 00         mov    rsi,QWORD PTR [rsp+0xbeef]
+ 1ea:   48 8b b5 ef be 00 00    mov    rsi,QWORD PTR [rbp+0xbeef]
+ 1f1:   48 8b b6 ef be 00 00    mov    rsi,QWORD PTR [rsi+0xbeef]
+ 1f8:   48 8b b7 ef be 00 00    mov    rsi,QWORD PTR [rdi+0xbeef]
+ 1ff:   48 8b b8 ef be 00 00    mov    rdi,QWORD PTR [rax+0xbeef]
+ 206:   48 8b b9 ef be 00 00    mov    rdi,QWORD PTR [rcx+0xbeef]
+ 20d:   48 8b ba ef be 00 00    mov    rdi,QWORD PTR [rdx+0xbeef]
+ 214:   48 8b bb ef be 00 00    mov    rdi,QWORD PTR [rbx+0xbeef]
+ 21b:   48 8b bc 24 ef be 00 00         mov    rdi,QWORD PTR [rsp+0xbeef]
+ 223:   48 8b bd ef be 00 00    mov    rdi,QWORD PTR [rbp+0xbeef]
+ 22a:   48 8b be ef be 00 00    mov    rdi,QWORD PTR [rsi+0xbeef]
+ 231:   48 8b bf ef be 00 00    mov    rdi,QWORD PTR [rdi+0xbeef]
+```
+
+We can move to the next instruction now.

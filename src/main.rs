@@ -40,10 +40,29 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let mut assembler = Assembler::default();
 
     for &dst in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::LoadImm { src: 0xdeadbeef, dst });
+        assembler.assemble_instruction(InstructionKind::LoadImm {
+            src: 0xdeadbeef,
+            dst,
+        });
     }
 
     add_function(&mut obj, section, b"asm_test", &assembler.emit_code());
+
+    let mut assembler = Assembler::default();
+
+    for &base in Register::ALL {
+        for &dst in Register::ALL {
+            assembler.assemble_instruction(InstructionKind::LoadAddr {
+                src: asm::Address {
+                    base,
+                    offset: 0xbeef,
+                },
+                dst,
+            });
+        }
+    }
+
+    add_function(&mut obj, section, b"loada_test", &assembler.emit_code());
 
     // Write the object file.
     obj.write_stream(file)?;

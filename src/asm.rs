@@ -1,3 +1,8 @@
+use self::sib::Scale;
+
+mod mod_rm;
+mod sib;
+
 pub type Immediate = i64;
 
 #[repr(u8)]
@@ -31,8 +36,8 @@ impl Register {
 }
 
 pub struct Address {
-    base: Register,
-    offset: i32,
+    pub base: Register,
+    pub offset: i32,
 }
 
 pub enum InstructionKind {
@@ -78,7 +83,7 @@ impl Assembler {
     pub fn assemble_instruction(&mut self, kind: InstructionKind) {
         match kind {
             InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
-            InstructionKind::LoadAddr { src, dst } => todo!(),
+            InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => todo!(),
             InstructionKind::Push(_) => todo!(),
             InstructionKind::Pop(_) => todo!(),
@@ -98,6 +103,31 @@ impl Assembler {
 
         self.buf.extend_from_slice(&[rex_prefix, opcode]);
         self.buf.extend_from_slice(&io);
+    }
+
+    fn assemble_load_addr(&mut self, src: Address, dst: Register) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+        let opcode = 0x8b;
+        let mod_rm = mod_rm::ModRmBuilder::new()
+            .displacement()
+            .reg(src.base as u8)
+            .rm(dst as u8)
+            .build();
+
+        if let Register::Sp = dst {
+            let sib = sib::SibBuilder::new()
+                .scale(Scale::One)
+                .index(dst)
+                .base(dst)
+                .build();
+
+            self.buf
+                .extend_from_slice(&[rex_prefix, opcode, mod_rm, sib]);
+        } else {
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        }
+
+        self.buf.extend_from_slice(&src.offset.to_le_bytes());
     }
 
     pub fn emit_code(self) -> Vec<u8> {
