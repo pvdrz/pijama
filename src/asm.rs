@@ -89,7 +89,7 @@ impl Assembler {
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
             InstructionKind::Push(reg) => self.assemble_push(reg),
-            InstructionKind::Pop(_) => todo!(),
+            InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => todo!(),
             InstructionKind::AddImm { src, dst } => todo!(),
             InstructionKind::Jump(_) => todo!(),
@@ -161,6 +161,13 @@ impl Assembler {
     fn assemble_push(&mut self, reg: Register) {
         let opcode = 0xFF;
         let mod_rm = ModRmBuilder::new().direct().reg(0x6).rm(reg as u8).build();
+
+        self.buf.extend_from_slice(&[opcode, mod_rm]);
+    }
+
+    fn assemble_pop(&mut self, reg: Register) {
+        let opcode = 0x8F;
+        let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(reg as u8).build();
 
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }

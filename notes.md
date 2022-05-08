@@ -648,3 +648,23 @@ We test this in the same as way we did with the `loadi` instruction:
  41c:   ff f6                   push   rsi
  41e:   ff f7                   push   rdi
 ```
+
+#### Pop
+
+We can also copy the pop instruction from the manual. The actual instruction is
+`POP r/m64`, the opcode is `8F /0` and the operand is encoded in the `r/m`
+field. Analogous to the push instruction, `/0` means that the `reg` field is
+set to zero.
+
+We test this instruction in the same way as before:
+```
+0000000000000420 <pop_test>:
+ 420:   8f c0                   pop    rax
+ 422:   8f c1                   pop    rcx
+ 424:   8f c2                   pop    rdx
+ 426:   8f c3                   pop    rbx
+ 428:   8f c4                   pop    rsp
+ 42a:   8f c5                   pop    rbp
+ 42c:   8f c6                   pop    rsi
+ 42e:   8f c7                   pop    rdi
+```
