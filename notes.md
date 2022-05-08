@@ -345,9 +345,9 @@ We will start with the following instructions
 ├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
 │ Add            │ add reg1,reg2       │ Add the contents of reg1 to the contents of reg2.                  │
 ├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Jump           │ jmp addr+im16       │ Jump to the value stored in addr+im16.                             │
+│ Jump           │ jmp addr            │ Jump to the value stored in addr+im16.                             │
 ├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ Jump LEZ       │ jlez addr+im16,reg  │ Jump to the value stored in addr+im16 if the contents of reg <= 0. │
+│ Jump LEZ       │ jlez add,reg        │ Jump to the value stored in addr+im16 if the contents of reg <= 0. │
 ├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
 │ Return         │ ret                 │ Transfer control to the address in the top of the stack.           │
 ├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
@@ -358,9 +358,9 @@ We will start with the following instructions
 Before starting to generate machine code for these instructions we need to
 clearly define their operands.
 
-The easiest operand kind to understand are the immediates `im16`, `im32` and
+The easiest operand kind to understand are the immediates `im32` and
 `im64` which are just constant signed integer values. We represent them with
-the `i16`, `i32` and `i64` types.
+the `i32` and `i64` types.
 
 Then we have registers or `reg`. The `x86_64` architecture has 16 general
 purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
@@ -371,9 +371,9 @@ them.
 
 Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that base addresses are stored in a register, we will extend this
-later. The effective address is computed by adding an offset to the base
-address, this offset that can be either an `im16` or `im32` according to the
-instruction (this is a limitation of the `x86` instruction set).
+later. The base address can be modified by adding an offset to the base
+address, this offset can only be an `im32` but not an `im64` (this is a
+limitation of the `x86` instruction set).
 
 Now we are ready to encode those instructions as valid `x86_64` machine code.
 
@@ -742,3 +742,26 @@ We test this instruction in the same way as we did with the load address instruc
  4db:   48 01 f9                add    rcx,rdi
  4de:   48 01 fa                add    rdx,rdi
  ```
+
+#### Jump
+
+We will use the `JMP r/m64` instruction which has the opcode `FF /4` meaning
+that we must set the `rem` field to `0x4`. The operand is encoded in the `r/m`
+field.
+
+This instruction is a "near" jump. Meaning that it can only be used to jump to
+code in the same segment. I am not sure if this is relevant for our use case
+and we should check later what to do about it.
+
+We test this instruction in the same way as the other single operand instructions:
+```
+00000000000004f0 <jmp_test>:
+ 4f0:   ff e0                   jmp    rax
+ 4f2:   ff e1                   jmp    rcx
+ 4f4:   ff e2                   jmp    rdx
+ 4f6:   ff e3                   jmp    rbx
+ 4f8:   ff e4                   jmp    rsp
+ 4fa:   ff e5                   jmp    rbp
+ 4fc:   ff e6                   jmp    rsi
+ 4fe:   ff e7                   jmp    rdi
+```

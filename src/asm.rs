@@ -6,7 +6,6 @@ use self::{
 mod mod_rm;
 mod sib;
 
-pub type Imm16 = i16;
 pub type Imm32 = i32;
 pub type Imm64 = i64;
 
@@ -52,8 +51,8 @@ pub enum InstructionKind {
     Push(Register),
     Pop(Register),
     Add { src: Register, dst: Register },
-    Jump(Address<Imm16>),
-    JumpLez { addr: Address<Imm16>, reg: Register },
+    Jump(Address<()>),
+    JumpLez { addr: Address<()>, reg: Register },
     Return,
     Call(Register),
 }
@@ -92,7 +91,7 @@ impl Assembler {
             InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
-            InstructionKind::Jump(_) => todo!(),
+            InstructionKind::Jump(addr) => self.assemmble_jump(addr),
             InstructionKind::JumpLez { addr, reg } => todo!(),
             InstructionKind::Return => todo!(),
             InstructionKind::Call(_) => todo!(),
@@ -182,6 +181,17 @@ impl Assembler {
             .build();
 
         self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+    }
+
+    fn assemmble_jump(&mut self, addr: Address<()>) {
+        let opcode = 0xFF;
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(0x4)
+            .rm(addr.base as u8)
+            .build();
+
+        self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
     pub fn emit_code(self) -> Vec<u8> {

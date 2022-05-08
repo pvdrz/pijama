@@ -2,7 +2,7 @@ mod asm;
 
 use std::{error::Error as StdError, fs::File, io::BufWriter};
 
-use asm::{Assembler, InstructionKind, Register};
+use asm::{Address, Assembler, InstructionKind, Register};
 use object::{
     write::{Object, SectionId, StandardSection, SymbolSection},
     Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
@@ -105,6 +105,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
     }
 
     add_function(&mut obj, section, b"add_test", &assembler.emit_code());
+
+    let mut assembler = Assembler::default();
+
+    for &base in Register::ALL {
+        assembler.assemble_instruction(InstructionKind::Jump(asm::Address { base, offset: () }));
+    }
+
+    add_function(&mut obj, section, b"jmp_test", &assembler.emit_code());
 
     // Write the object file.
     obj.write_stream(file)?;
