@@ -1,4 +1,7 @@
-use self::sib::Scale;
+use self::{
+    mod_rm::ModRmBuilder,
+    sib::{Scale, SibBuilder},
+};
 
 mod mod_rm;
 mod sib;
@@ -108,14 +111,14 @@ impl Assembler {
     fn assemble_load_addr(&mut self, src: Address, dst: Register) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x8b;
-        let mod_rm = mod_rm::ModRmBuilder::new()
+        let mod_rm = ModRmBuilder::new()
             .displacement()
             .reg(src.base as u8)
             .rm(dst as u8)
             .build();
 
         if let Register::Sp = dst {
-            let sib = sib::SibBuilder::new()
+            let sib = SibBuilder::new()
                 .scale(Scale::One)
                 .index(dst)
                 .base(dst)
@@ -133,14 +136,14 @@ impl Assembler {
     fn assemble_store(&mut self, src: Register, dst: Address) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x89;
-        let mod_rm = mod_rm::ModRmBuilder::new()
+        let mod_rm = ModRmBuilder::new()
             .displacement()
             .reg(dst.base as u8)
             .rm(src as u8)
             .build();
 
         if let Register::Sp = src {
-            let sib = sib::SibBuilder::new()
+            let sib = SibBuilder::new()
                 .scale(Scale::One)
                 .index(src)
                 .base(src)
@@ -157,11 +160,7 @@ impl Assembler {
 
     fn assemble_push(&mut self, reg: Register) {
         let opcode = 0xFF;
-        let mod_rm = mod_rm::ModRmBuilder::new()
-            .direct()
-            .reg(0x6)
-            .rm(reg as u8)
-            .build();
+        let mod_rm = ModRmBuilder::new().direct().reg(0x6).rm(reg as u8).build();
 
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
