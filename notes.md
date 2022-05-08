@@ -790,9 +790,9 @@ encodes the operand by appending it after the `0x84` byte.
 
 In other words, we will emit the following code to encode our `jz imm32,reg`:
 
-```asm
-cmp  reg,0x0 # compare `reg` to zero.
-je   imm32   # if `reg == 0`, jump to `imm32`.
+```nasm
+cmp  reg,0x0 ; compare `reg` to zero.
+je   imm32   ; if `reg == 0`, jump to `imm32`.
 ```
 
 We test this instruction in the same way as the others:
