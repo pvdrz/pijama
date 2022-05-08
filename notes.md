@@ -356,3 +356,20 @@ We will start with the following instructions
 │ Call           │ call reg       │ Transfer control to the address contained in reg.                                    │
 └────────────────┴────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+Before starting to generate machine code for these instructions we need to
+clearly define their operands.
+
+The easiest operand kind to understand are immediates or `imm` which are just
+constant values. For now we can represent them with a `i64` type.
+
+Then we have registers or `reg`. The `x86_64` architecture has 16 general
+purpose registers in 64-bit mode: `rax`, `rbx`, `rcx`, `rdx`, `rbp`, `rsi`,
+`rdi`, `rsp` `r8`, ..., `r14` and `r15`. Additionally we have the `rip`
+register which holds the instruction pointer. There are other specific purpose
+registers that we will discuss if we need them.
+
+Finally, we have addresses or `addr` which represent memory locations. For now,
+we will say that addresses are composed of a base address stored in a register
+and an offset stored in a 32-bit signed integer (we only use 32 bits because
+offsets are not supposed to be large).

@@ -1,6 +1,21 @@
-pub type Immediate = ();
-pub type Address = ();
-pub type Register = ();
+pub type Immediate = i64;
+
+pub enum Register {
+    Ax,
+    Bx,
+    Cx,
+    Dx,
+    Bp,
+    Si,
+    Di,
+    Sp,
+}
+
+pub struct Address {
+    base: Register,
+    /// We use `i32` because offsets are not that large anyway.
+    offset: i32,
+}
 
 pub enum InstructionKind {
     LoadImm { src: Immediate, dst: Register },
