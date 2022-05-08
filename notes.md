@@ -392,7 +392,7 @@ function in our object file which contains the instruction `loadi -1,reg` for
 every `reg` and then dissasemble it with `objdump`:
 
 ```
-0000000000000020 <asm_test>:
+0000000000000020 <loadi_test>:
   20:   48 b8 ef be ad de 00 00 00 00   movabs rax,0xdeadbeef
   2a:   48 b9 ef be ad de 00 00 00 00   movabs rcx,0xdeadbeef
   34:   48 ba ef be ad de 00 00 00 00   movabs rdx,0xdeadbeef

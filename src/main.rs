@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
         });
     }
 
-    add_function(&mut obj, section, b"asm_test", &assembler.emit_code());
+    add_function(&mut obj, section, b"loadi_test", &assembler.emit_code());
 
     let mut assembler = Assembler::default();
 
