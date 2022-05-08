@@ -668,3 +668,77 @@ We test this instruction in the same way as before:
  42c:   8f c6                   pop    rsi
  42e:   8f c7                   pop    rdi
 ```
+
+#### Add
+
+The instruction we will use for add is `ADD r/m64, r64` which has the opcode
+`REX.W + 01 /r`. The first operand is encoded in the `r/m` field and the second
+one in the `reg` field. However, intel puts the arguments in the reverse order
+as we do. Meaning that this instruction adds to the first operand, not to the
+second. Putting that detail aside, emitting this instruction should be
+straightforward.
+
+We test this instruction in the same way as we did with the load address instruction:
+
+```
+0000000000000430 <add_test>:
+ 430:   48 01 c0                add    rax,rax
+ 433:   48 01 c1                add    rcx,rax
+ 436:   48 01 c2                add    rdx,rax
+ 439:   48 01 c3                add    rbx,rax
+ 43c:   48 01 c4                add    rsp,rax
+ 43f:   48 01 c5                add    rbp,rax
+ 442:   48 01 c6                add    rsi,rax
+ 445:   48 01 c7                add    rdi,rax
+ 448:   48 01 c8                add    rax,rcx
+ 44b:   48 01 c9                add    rcx,rcx
+ 44e:   48 01 ca                add    rdx,rcx
+ 451:   48 01 cb                add    rbx,rcx
+ 454:   48 01 cc                add    rsp,rcx
+ 457:   48 01 cd                add    rbp,rcx
+ 45a:   48 01 ce                add    rsi,rcx
+ 45d:   48 01 cf                add    rdi,rcx
+ 460:   48 01 d0                add    rax,rdx
+ 463:   48 01 d1                add    rcx,rdx
+ 466:   48 01 d2                add    rdx,rdx
+ 469:   48 01 d3                add    rbx,rdx
+ 46c:   48 01 d4                add    rsp,rdx
+ 46f:   48 01 d5                add    rbp,rdx
+ 472:   48 01 d6                add    rsi,rdx
+ 475:   48 01 d7                add    rdi,rdx
+ 478:   48 01 d8                add    rax,rbx
+ 47b:   48 01 d9                add    rcx,rbx
+ 47e:   48 01 da                add    rdx,rbx
+ 481:   48 01 db                add    rbx,rbx
+ 484:   48 01 dc                add    rsp,rbx
+ 487:   48 01 dd                add    rbp,rbx
+ 48a:   48 01 de                add    rsi,rbx
+ 48d:   48 01 df                add    rdi,rbx
+ 490:   48 01 e0                add    rax,rsp
+ 493:   48 01 e1                add    rcx,rsp
+ 496:   48 01 e2                add    rdx,rsp
+ 499:   48 01 e3                add    rbx,rsp
+ 49c:   48 01 e4                add    rsp,rsp
+ 49f:   48 01 e5                add    rbp,rsp
+ 4a2:   48 01 e6                add    rsi,rsp
+ 4a5:   48 01 e7                add    rdi,rsp
+ 4a8:   48 01 e8                add    rax,rbp
+ 4ab:   48 01 e9                add    rcx,rbp
+ 4ae:   48 01 ea                add    rdx,rbp
+ 4b1:   48 01 eb                add    rbx,rbp
+ 4b4:   48 01 ec                add    rsp,rbp
+ 4b7:   48 01 ed                add    rbp,rbp
+ 4ba:   48 01 ee                add    rsi,rbp
+ 4bd:   48 01 ef                add    rdi,rbp
+ 4c0:   48 01 f0                add    rax,rsi
+ 4c3:   48 01 f1                add    rcx,rsi
+ 4c6:   48 01 f2                add    rdx,rsi
+ 4c9:   48 01 f3                add    rbx,rsi
+ 4cc:   48 01 f4                add    rsp,rsi
+ 4cf:   48 01 f5                add    rbp,rsi
+ 4d2:   48 01 f6                add    rsi,rsi
+ 4d5:   48 01 f7                add    rdi,rsi
+ 4d8:   48 01 f8                add    rax,rdi
+ 4db:   48 01 f9                add    rcx,rdi
+ 4de:   48 01 fa                add    rdx,rdi
+ ```

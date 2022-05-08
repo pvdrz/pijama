@@ -96,6 +96,16 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     add_function(&mut obj, section, b"pop_test", &assembler.emit_code());
 
+    let mut assembler = Assembler::default();
+
+    for &src in Register::ALL {
+        for &dst in Register::ALL {
+            assembler.assemble_instruction(InstructionKind::Add { src, dst });
+        }
+    }
+
+    add_function(&mut obj, section, b"add_test", &assembler.emit_code());
+
     // Write the object file.
     obj.write_stream(file)?;
 

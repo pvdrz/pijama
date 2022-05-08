@@ -90,7 +90,7 @@ impl Assembler {
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
             InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
-            InstructionKind::Add { src, dst } => todo!(),
+            InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::AddImm { src, dst } => todo!(),
             InstructionKind::Jump(_) => todo!(),
             InstructionKind::JumpLez { addr, reg } => todo!(),
@@ -170,6 +170,18 @@ impl Assembler {
         let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(reg as u8).build();
 
         self.buf.extend_from_slice(&[opcode, mod_rm]);
+    }
+
+    fn assemble_add(&mut self, src: Register, dst: Register) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+        let opcode = 0x01;
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(src as u8)
+            .rm(dst as u8)
+            .build();
+
+        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
     }
 
     pub fn emit_code(self) -> Vec<u8> {
