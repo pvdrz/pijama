@@ -1,3 +1,5 @@
+mod asm;
+
 use std::{error::Error as StdError, fs::File, io::BufWriter};
 
 use object::{

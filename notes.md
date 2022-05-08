@@ -195,6 +195,8 @@ can reuse what we already did and just append a second symbol.
 Now that we are able to produce our own ELF files, we can start thinking about
 writing an assembler to produce machine code.
 
+### Understanding the `x86` instruction set
+
 To do this, we need to understand the instruction format for `x86_64`. From the
 Intel and AMD developer manuals for the `x86` architecture we can obtain the
 format of the instructions:
@@ -319,8 +321,38 @@ single instruction in the set would be an almost impossible task. The good news
 is that given that we are writing our own assembler we can implement a subset
 of it.
 
-This subset will be inspired by RISC-V instruction set just because I've always
-been interested in RISC in general. This means that we won't have as much
-flexibility when emitting assembly code but it will be way simpler. Just to be
-clear, the assembly instructions might look like RISC ones but the assembler
-will still emit valid x86 machine code.
+### Writing a small instruction set
+
+For now we will only support 64-bit operands. Smaller operands can be supported by
+either casting them to 64-bit integers or by extending our instruction set
+later.
+
+We will start with the following instructions
+
+```
+┌────────────────┬────────────────┬──────────────────────────────────────────────────────────────────────────────────────┐
+│      Name      │   Instruction  │     Description                                                                      │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Load Immediate │ loadi imm,reg  │ Load the imm value into reg.                                                         │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Load Address   │ loada addr,reg │ Load the contents of addr into reg.                                                  │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Store          │ store reg,addr │ Store the contents of reg into addr.                                                 │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Push           │ push reg       │ Push the contents of reg into the stack.                                             │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Pop            │ pop reg        │ Pop a value from the stack and put it in reg.                                        │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Add            │ add reg1,reg2  │ Add the contents of reg1 to the contents of reg2.                                    │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Add Immediate  │ addi imm,reg   │ Add the imm value to the contents of reg.                                            │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump           │ jmp addr       │ Jump to the value stored in addr.                                                    │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump LEZ       │ jlez addr,reg  │ Jump to the value stored in addr if the contents of reg are less or equal than zero. │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Return         │ ret            │ Transfer control to the address in the top of the stack.                             │
+├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Call           │ call reg       │ Transfer control to the address contained in reg.                                    │
+└────────────────┴────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+```
