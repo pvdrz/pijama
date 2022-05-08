@@ -379,7 +379,7 @@ Now we are ready to encode those instructions as valid `x86_64` machine code.
 
 #### Load Immediate
 
-To load an immedate to a register we will use the `MOV r64, imm64` instruction
+To load an immedate to a register we will use the `MOV r64,imm64` instruction
 which has the opcode `REX.W + B8+ rd io`. The first operand is encoded by
 adding an `rd` value representing the register to the `0xB8` opcode and setting the
 `REX.B` bit to zero. The second operand is encoded as the literal value.
