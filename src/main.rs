@@ -122,6 +122,20 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     add_function(&mut obj, section, b"jz_test", &assembler.emit_code());
 
+    let mut assembler = Assembler::default();
+
+    assembler.assemble_instruction(InstructionKind::Return);
+
+    add_function(&mut obj, section, b"ret_test", &assembler.emit_code());
+
+    let mut assembler = Assembler::default();
+
+    for &trg in Register::ALL {
+        assembler.assemble_instruction(InstructionKind::Call(trg));
+    }
+
+    add_function(&mut obj, section, b"call_test", &assembler.emit_code());
+
     // Write the object file.
     obj.write_stream(file)?;
 

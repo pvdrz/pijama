@@ -828,3 +828,37 @@ position obtained from adding `0xbef9` to the start of `jz_test`". We know that
 position immediately after the `je` instruction). In other words the, current
 position is `<jz_test+0x0a>`. Which means that the relative offset between the
 two positions is `0xbef9 - 0x0a` which is exactly `0xbeef`.
+
+#### Return
+
+After all this madness we go back to a simple instruction. We will use the near
+return instruction `RET` which has the opcode `C3` and takes no operands. There
+is a far return instruction, but apparently far returns and jumps have no
+purpose in modern processors.
+
+Testing it is really simple:
+```objdump
+0000000000000550 <ret_test>:
+ 550:   c3                      ret
+```
+
+#### Call
+
+For this last instruction we will use the near call instruction `CALL r/m64`
+which has the opcode `FF /2` and encodes its operand in the `rm` field.
+
+We test it in the same way as the other instructions:
+
+```objdump
+0000000000000560 <call_test>:
+ 560:   ff d0                   call   rax
+ 562:   ff d1                   call   rcx
+ 564:   ff d2                   call   rdx
+ 566:   ff d3                   call   rbx
+ 568:   ff d4                   call   rsp
+ 56a:   ff d5                   call   rbp
+ 56c:   ff d6                   call   rsi
+ 56e:   ff d7                   call   rdi
+```
+
+And we are done with or tiny assembler!

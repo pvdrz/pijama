@@ -93,8 +93,8 @@ impl Assembler {
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::Jump(addr) => self.assemmble_jump(addr),
             InstructionKind::JumpIfZero { trg, scr } => self.assemble_jump_if_zero(trg, scr),
-            InstructionKind::Return => todo!(),
-            InstructionKind::Call(_) => todo!(),
+            InstructionKind::Return => self.assemble_return(),
+            InstructionKind::Call(trg) => self.assemble_call(trg),
         }
     }
 
@@ -205,6 +205,19 @@ impl Assembler {
         // je trg
         self.buf.extend_from_slice(&[0x0F, 0x84]);
         self.buf.extend_from_slice(&trg.to_le_bytes());
+    }
+
+    fn assemble_return(&mut self) {
+        let opcode = 0xC3;
+
+        self.buf.extend_from_slice(&[opcode]);
+    }
+
+    fn assemble_call(&mut self, trg: Register) {
+        let opcode = 0xFF;
+        let mod_rm = ModRmBuilder::new().direct().reg(0x2).rm(trg as u8).build();
+
+        self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
     pub fn emit_code(self) -> Vec<u8> {
