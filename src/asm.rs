@@ -85,7 +85,7 @@ impl Assembler {
             InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
-            InstructionKind::Push(_) => todo!(),
+            InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(_) => todo!(),
             InstructionKind::Add { src, dst } => todo!(),
             InstructionKind::AddImm { src, dst } => todo!(),
@@ -153,6 +153,17 @@ impl Assembler {
         }
 
         self.buf.extend_from_slice(&dst.offset.to_le_bytes());
+    }
+
+    fn assemble_push(&mut self, reg: Register) {
+        let opcode = 0xFF;
+        let mod_rm = mod_rm::ModRmBuilder::new()
+            .direct()
+            .reg(0x6)
+            .rm(reg as u8)
+            .build();
+
+        self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
     pub fn emit_code(self) -> Vec<u8> {

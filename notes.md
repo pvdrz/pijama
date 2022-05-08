@@ -628,3 +628,23 @@ We can test this instruction by doing the same we did for the load address instr
  3fa:   48 89 b7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsi
  401:   48 89 bf ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdi
 ```
+
+#### Push
+
+The push instruction is the first instruction that we can basically copy from
+the `x86_64` manual. We will use the `PUSH r/m64` instruction which has the
+opcode `FF /6` and encodes its operand in the `r/m` field. The `/6` means that
+the `reg` field must be set to `0x6` to encode this instruction.
+
+We test this in the same as way we did with the `loadi` instruction:
+```
+0000000000000410 <push_test>:
+ 410:   ff f0                   push   rax
+ 412:   ff f1                   push   rcx
+ 414:   ff f2                   push   rdx
+ 416:   ff f3                   push   rbx
+ 418:   ff f4                   push   rsp
+ 41a:   ff f5                   push   rbp
+ 41c:   ff f6                   push   rsi
+ 41e:   ff f7                   push   rdi
+```

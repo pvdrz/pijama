@@ -80,6 +80,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     add_function(&mut obj, section, b"store_test", &assembler.emit_code());
 
+    let mut assembler = Assembler::default();
+
+    for &reg in Register::ALL {
+        assembler.assemble_instruction(InstructionKind::Push(reg));
+    }
+
+    add_function(&mut obj, section, b"push_test", &assembler.emit_code());
+
     // Write the object file.
     obj.write_stream(file)?;
 
