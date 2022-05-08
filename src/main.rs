@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let mut assembler = Assembler::default();
 
     for &dst in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::LoadImm { src: -1, dst });
+        assembler.assemble_instruction(InstructionKind::LoadImm { src: 0xdeadbeef, dst });
     }
 
     add_function(&mut obj, section, b"asm_test", &assembler.emit_code());

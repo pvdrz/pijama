@@ -393,13 +393,13 @@ every `reg` and then dissasemble it with `objdump`:
 
 ```
 0000000000000020 <asm_test>:
-  20:   48 b8 ff ff ff ff ff ff ff ff   movabs rax,0xffffffffffffffff
-  2a:   48 b9 ff ff ff ff ff ff ff ff   movabs rcx,0xffffffffffffffff
-  34:   48 ba ff ff ff ff ff ff ff ff   movabs rdx,0xffffffffffffffff
-  3e:   48 bb ff ff ff ff ff ff ff ff   movabs rbx,0xffffffffffffffff
-  48:   48 bc ff ff ff ff ff ff ff ff   movabs rsp,0xffffffffffffffff
-  52:   48 bd ff ff ff ff ff ff ff ff   movabs rbp,0xffffffffffffffff
-  5c:   48 be ff ff ff ff ff ff ff ff   movabs rsi,0xffffffffffffffff
-  66:   48 bf ff ff ff ff ff ff ff ff   movabs rdi,0xffffffffffffffff
+  20:   48 b8 ef be ad de 00 00 00 00   movabs rax,0xdeadbeef
+  2a:   48 b9 ef be ad de 00 00 00 00   movabs rcx,0xdeadbeef
+  34:   48 ba ef be ad de 00 00 00 00   movabs rdx,0xdeadbeef
+  3e:   48 bb ef be ad de 00 00 00 00   movabs rbx,0xdeadbeef
+  48:   48 bc ef be ad de 00 00 00 00   movabs rsp,0xdeadbeef
+  52:   48 bd ef be ad de 00 00 00 00   movabs rbp,0xdeadbeef
+  5c:   48 be ef be ad de 00 00 00 00   movabs rsi,0xdeadbeef
+  66:   48 bf ef be ad de 00 00 00 00   movabs rdi,0xdeadbeef
 ```
 Everything looks in order, so we are done with this instruction.
