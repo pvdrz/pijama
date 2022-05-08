@@ -50,7 +50,6 @@ pub enum InstructionKind {
     Push(Register),
     Pop(Register),
     Add { src: Register, dst: Register },
-    AddImm { src: Immediate, dst: Register },
     Jump(Address),
     JumpLez { addr: Address, reg: Register },
     Return,

@@ -345,8 +345,6 @@ We will start with the following instructions
 ├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
 │ Add            │ add reg1,reg2  │ Add the contents of reg1 to the contents of reg2.                                    │
 ├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Add Immediate  │ addi imm,reg   │ Add the imm value to the contents of reg.                                            │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
 │ Jump           │ jmp addr       │ Jump to the value stored in addr.                                                    │
 ├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
 │ Jump LEZ       │ jlez addr,reg  │ Jump to the value stored in addr if the contents of reg are less or equal than zero. │
