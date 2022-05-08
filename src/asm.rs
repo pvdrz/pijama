@@ -6,7 +6,9 @@ use self::{
 mod mod_rm;
 mod sib;
 
-pub type Immediate = i64;
+pub type Imm16 = i16;
+pub type Imm32 = i32;
+pub type Imm64 = i64;
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -38,20 +40,20 @@ impl Register {
     }
 }
 
-pub struct Address {
+pub struct Address<I> {
     pub base: Register,
-    pub offset: i32,
+    pub offset: I,
 }
 
 pub enum InstructionKind {
-    LoadImm { src: Immediate, dst: Register },
-    LoadAddr { src: Address, dst: Register },
-    Store { src: Register, dst: Address },
+    LoadImm { src: Imm64, dst: Register },
+    LoadAddr { src: Address<Imm32>, dst: Register },
+    Store { src: Register, dst: Address<Imm32> },
     Push(Register),
     Pop(Register),
     Add { src: Register, dst: Register },
-    Jump(Address),
-    JumpLez { addr: Address, reg: Register },
+    Jump(Address<Imm16>),
+    JumpLez { addr: Address<Imm16>, reg: Register },
     Return,
     Call(Register),
 }
@@ -90,7 +92,6 @@ impl Assembler {
             InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
-            InstructionKind::AddImm { src, dst } => todo!(),
             InstructionKind::Jump(_) => todo!(),
             InstructionKind::JumpLez { addr, reg } => todo!(),
             InstructionKind::Return => todo!(),
@@ -107,7 +108,7 @@ impl Assembler {
         self.buf.extend_from_slice(&io);
     }
 
-    fn assemble_load_addr(&mut self, src: Address, dst: Register) {
+    fn assemble_load_addr(&mut self, src: Address<Imm32>, dst: Register) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x8b;
         let mod_rm = ModRmBuilder::new()
@@ -132,7 +133,7 @@ impl Assembler {
         self.buf.extend_from_slice(&src.offset.to_le_bytes());
     }
 
-    fn assemble_store(&mut self, src: Register, dst: Address) {
+    fn assemble_store(&mut self, src: Register, dst: Address<Imm32>) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x89;
         let mod_rm = ModRmBuilder::new()

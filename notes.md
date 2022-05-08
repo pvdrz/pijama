@@ -330,36 +330,37 @@ later.
 We will start with the following instructions
 
 ```
-┌────────────────┬────────────────┬──────────────────────────────────────────────────────────────────────────────────────┐
-│      Name      │   Instruction  │     Description                                                                      │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Load Immediate │ loadi imm,reg  │ Load the imm value into reg.                                                         │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Load Address   │ loada addr,reg │ Load the contents of addr into reg.                                                  │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Store          │ store reg,addr │ Store the contents of reg into addr.                                                 │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Push           │ push reg       │ Push the contents of reg into the stack.                                             │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Pop            │ pop reg        │ Pop a value from the stack and put it in reg.                                        │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Add            │ add reg1,reg2  │ Add the contents of reg1 to the contents of reg2.                                    │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump           │ jmp addr       │ Jump to the value stored in addr.                                                    │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump LEZ       │ jlez addr,reg  │ Jump to the value stored in addr if the contents of reg are less or equal than zero. │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Return         │ ret            │ Transfer control to the address in the top of the stack.                             │
-├────────────────┼────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
-│ Call           │ call reg       │ Transfer control to the address contained in reg.                                    │
-└────────────────┴────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────┬─────────────────────┬────────────────────────────────────────────────────────────────────┐
+│      Name      │   Instruction       │     Description                                                    │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Load Immediate │ loadi im64,reg      │ Load the im64 value into reg.                                      │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Load Address   │ loada addr+im32,reg │ Load the contents of addr + im32 into reg.                         │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Store          │ store reg,addr+im32 │ Store the contents of reg into addr + im32.                        │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Push           │ push reg            │ Push the contents of reg into the stack.                           │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Pop            │ pop reg             │ Pop a value from the stack and put it in reg.                      │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Add            │ add reg1,reg2       │ Add the contents of reg1 to the contents of reg2.                  │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Jump           │ jmp addr+im16       │ Jump to the value stored in addr+im16.                             │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Jump LEZ       │ jlez addr+im16,reg  │ Jump to the value stored in addr+im16 if the contents of reg <= 0. │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Return         │ ret                 │ Transfer control to the address in the top of the stack.           │
+├────────────────┼─────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ Call           │ call reg            │ Transfer control to the address contained in reg.                  │
+└────────────────┴─────────────────────┴────────────────────────────────────────────────────────────────────┘
 ```
 
 Before starting to generate machine code for these instructions we need to
 clearly define their operands.
 
-The easiest operand kind to understand are immediates or `imm` which are just
-constant values. For now we can represent them with a `i64` type.
+The easiest operand kind to understand are the immediates `im16`, `im32` and
+`im64` which are just constant signed integer values. We represent them with
+the `i16`, `i32` and `i64` types.
 
 Then we have registers or `reg`. The `x86_64` architecture has 16 general
 purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
@@ -369,9 +370,10 @@ There are other specific purpose registers that we will discuss if we need
 them.
 
 Finally, we have addresses or `addr` which represent memory locations. For now,
-we will say that addresses are composed of a base address stored in a register
-and an offset stored in a 32-bit signed integer (we only use 32 bits because
-offsets are not supposed to be large).
+we will say that base addresses are stored in a register, we will extend this
+later. The effective address is computed by adding an offset to the base
+address, this offset that can be either an `im16` or `im32` according to the
+instruction (this is a limitation of the `x86` instruction set).
 
 Now we are ready to encode those instructions as valid `x86_64` machine code.
 
@@ -442,7 +444,7 @@ But now we need to know how to encode the offset.
 
 According to the AMD manual, setting `mod` to `0b01` or `0b10` allows us to
 encode the offset in the `Displacement` field. Given that our offsets are
-32-bit long, they fit perfectly using a 4-byte length displacement field.
+`im32`, they fit perfectly using a 4-byte length displacement field.
 
 Then we can use `r/m` to encode the actual register with almost same encoding
 as `reg`. The only difference is that when we are not in direct-register mode
