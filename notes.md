@@ -390,6 +390,8 @@ To check that we generated the right machine code we can generate another
 function in our object file which contains the instruction `loadi -1,reg` for
 every `reg` and then dissasemble it with `objdump`:
 ```objdump
+Disassembly of section .text:
+
 0000000000000020 <loadi_test>:
   20:   48 b8 ef be ad de 00 00 00 00   movabs rax,0xdeadbeef
   2a:   48 b9 ef be ad de 00 00 00 00   movabs rcx,0xdeadbeef
@@ -477,6 +479,8 @@ With this particular case solved. We are done encoding the load address
 instruction and we are ready to test it by emitting code that calls this
 instruction using all the possible register pairs and dissassembling it:
 ```objdump
+Disassembly of section .text:
+
 0000000000000070 <loada_test>:
   70:   48 8b 80 ef be 00 00    mov    rax,QWORD PTR [rax+0xbeef]
   77:   48 8b 81 ef be 00 00    mov    rax,QWORD PTR [rcx+0xbeef]
@@ -559,6 +563,8 @@ address instruction because the arguments are flipped.
 
 We can test this instruction by doing the same we did for the load address instruction:
 ```objdump
+Disassembly of section .text:
+
 0000000000000240 <store_test>:
  240:   48 89 80 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rax
  247:   48 89 88 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rcx
@@ -635,6 +641,8 @@ the `reg` field must be set to `0x6` to encode this instruction.
 
 We test this in the same as way we did with the `loadi` instruction:
 ```objdump
+Disassembly of section .text:
+
 0000000000000410 <push_test>:
  410:   ff f0                   push   rax
  412:   ff f1                   push   rcx
@@ -655,6 +663,8 @@ set to zero.
 
 We test this instruction in the same way as before:
 ```objdump
+Disassembly of section .text:
+
 0000000000000420 <pop_test>:
  420:   8f c0                   pop    rax
  422:   8f c1                   pop    rcx
@@ -678,6 +688,8 @@ straightforward.
 We test this instruction in the same way as we did with the load address instruction:
 
 ```objdump
+Disassembly of section .text:
+
 0000000000000430 <add_test>:
  430:   48 01 c0                add    rax,rax
  433:   48 01 c1                add    rcx,rax
@@ -752,6 +764,8 @@ and we should check later what to do about it.
 
 We test this instruction in the same way as the other single operand instructions:
 ```objdump
+Disassembly of section .text:
+
 00000000000004f0 <jmp_test>:
  4f0:   ff e0                   jmp    rax
  4f2:   ff e1                   jmp    rcx
@@ -797,6 +811,8 @@ je   imm32   ; if `reg == 0`, jump to `imm32`.
 
 We test this instruction in the same way as the others:
 ```objdump
+Disassembly of section .text:
+
 0000000000000500 <jz_test>:
  500:   48 83 f8 00             cmp    rax,0x0
  504:   0f 84 ef be 00 00       je     c3f9 <jz_test+0xbef9>
@@ -838,6 +854,8 @@ purpose in modern processors.
 
 Testing it is really simple:
 ```objdump
+Disassembly of section .text:
+
 0000000000000550 <ret_test>:
  550:   c3                      ret
 ```
@@ -850,6 +868,8 @@ which has the opcode `FF /2` and encodes its operand in the `rm` field.
 We test it in the same way as the other instructions:
 
 ```objdump
+Disassembly of section .text:
+
 0000000000000560 <call_test>:
  560:   ff d0                   call   rax
  562:   ff d1                   call   rcx
