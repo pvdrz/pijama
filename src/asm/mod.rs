@@ -219,25 +219,25 @@ impl Assembler {
 #[macro_export]
 macro_rules! reg {
     (rax) => {
-        Register::Ax
+        $crate::asm::Register::Ax
     };
     (rcx) => {
-        Register::Cx
+        $crate::asm::Register::Cx
     };
     (rbx) => {
-        Register::Bx
+        $crate::asm::Register::Bx
     };
     (rsp) => {
-        Register::Sp
+        $crate::asm::Register::Sp
     };
     (rbp) => {
-        Register::Bp
+        $crate::asm::Register::Bp
     };
     (rsi) => {
-        Register::Si
+        $crate::asm::Register::Si
     };
     (rdi) => {
-        Register::Di
+        $crate::asm::Register::Di
     };
     ($expr:expr) => {
         $expr
@@ -246,61 +246,58 @@ macro_rules! reg {
 
 #[macro_export]
 macro_rules! code {
-    () => {
-        let mut code = vec![];
-    };
-    (loadi {$imm64:expr},{$reg:expr}) => {
+    (loadi {$imm64:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::LoadImm {
             src: $imm64,
-            dst: $crate::reg!($reg),
+            dst: $crate::reg!($($reg)+),
         };
     };
-    (loada {$addr:expr}+{$imm32:expr},{$reg:expr}) => {
+    (loada {$($addr:tt)+}+{$imm32:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::LoadAddr {
             src: $crate::asm::Address {
-                base: $crate::reg!($addr),
+                base: $crate::reg!($($addr)+),
                 offset: $imm32,
             },
-            dst: $crate::reg!($reg),
+            dst: $crate::reg!($($reg)+),
         }
     };
-    (store {$reg:expr},{$addr:expr}+{$imm32:expr}) => {
+    (store {$($reg:tt)*},{$($addr:tt)*}+{$imm32:expr}) => {
         $crate::asm::InstructionKind::Store {
-            src: $crate::reg!($reg),
+            src: $crate::reg!($($reg)*),
             dst: $crate::asm::Address {
-                base: $crate::reg!($addr),
+                base: $crate::reg!($($addr)*),
                 offset: $imm32,
             },
         }
     };
-    (push {$reg:expr}) => {
-        $crate::asm::InstructionKind::Push($crate::reg!($reg))
+    (push {$($reg:tt)*}) => {
+        $crate::asm::InstructionKind::Push($crate::reg!($($reg)*))
     };
-    (pop {$reg:expr}) => {
-        $crate::asm::InstructionKind::Pop($crate::reg!($reg))
+    (pop {$($reg:tt)*}) => {
+        $crate::asm::InstructionKind::Pop($crate::reg!($($reg)*))
     };
-    (add {$reg1:expr}, {$reg2:expr}) => {
+    (add {$($reg1:tt)*}, {$($reg2:tt)*}) => {
         $crate::asm::InstructionKind::Add {
-            src: $crate::reg!($reg1),
-            dst: $crate::reg!($reg2),
+            src: $crate::reg!($($reg1)*),
+            dst: $crate::reg!($($reg2)*),
         }
     };
-    (jmp {$addr:expr}) => {
+    (jmp {$($addr:tt)*}) => {
         $crate::asm::InstructionKind::Jump($crate::asm::Address {
-            base: $crate::reg!($addr),
+            base: $crate::reg!($($addr)*),
             offset: (),
         })
     };
-    (jz {$imm32:expr},{$reg:expr}) => {
+    (jz {$imm32:expr},{$($reg:tt)*}) => {
         $crate::asm::InstructionKind::JumpIfZero {
             trg: $imm32,
-            scr: $crate::reg!($reg),
+            scr: $crate::reg!($($reg)*),
         }
     };
     (ret) => {
         $crate::asm::InstructionKind::Return
     };
-    (call {$reg:expr}) => {
-        $crate::asm::InstructionKind::Call($crate::reg!($reg))
+    (call {$($reg:tt)*}) => {
+        $crate::asm::InstructionKind::Call($crate::reg!($($reg)*))
     };
 }
