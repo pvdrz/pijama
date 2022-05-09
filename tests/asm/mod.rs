@@ -1,4 +1,7 @@
-use pijama::asm::{Address, Assembler, InstructionKind, Register};
+use pijama::{
+    asm::{Assembler, Register},
+    code,
+};
 
 const REGISTERS: [Register; 8] = [
     Register::Ax,
@@ -11,6 +14,9 @@ const REGISTERS: [Register; 8] = [
     Register::Di,
 ];
 
+const DEADBEEF32: i32 = 0xdeadbeefu32 as i32;
+const DEADBEEF64: i64 = 0xdeadbeefdeadbeefu64 as i64;
+
 #[test]
 fn loadi() {
     let expected_bytes = include_bytes!("loadi.out");
@@ -18,10 +24,7 @@ fn loadi() {
     let mut asm = Assembler::default();
 
     for dst in REGISTERS {
-        asm.assemble_instruction(InstructionKind::LoadImm {
-            src: 0xdeadbeefdeadbeefu64 as i64,
-            dst,
-        });
+        asm.assemble_instruction(code!(loadi { DEADBEEF64 }, { dst }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
@@ -35,13 +38,7 @@ fn load() {
 
     for base in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(InstructionKind::LoadAddr {
-                src: Address {
-                    base,
-                    offset: 0xdeadbeefu32 as i32,
-                },
-                dst,
-            });
+            asm.assemble_instruction(code!(loada { base } + { DEADBEEF32 }, { dst }));
         }
     }
 
@@ -55,14 +52,8 @@ fn store() {
     let mut asm = Assembler::default();
 
     for src in REGISTERS {
-        for base in REGISTERS {
-            asm.assemble_instruction(InstructionKind::Store {
-                src,
-                dst: Address {
-                    base,
-                    offset: 0xdeadbeefu32 as i32,
-                },
-            });
+        for dst in REGISTERS {
+            asm.assemble_instruction(code!(store { src }, { dst } + { DEADBEEF32 }));
         }
     }
 
@@ -76,7 +67,7 @@ fn push() {
     let mut asm = Assembler::default();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(InstructionKind::Push(reg));
+        asm.assemble_instruction(code!(push { reg }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
@@ -89,7 +80,7 @@ fn pop() {
     let mut asm = Assembler::default();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(InstructionKind::Pop(reg));
+        asm.assemble_instruction(code!(pop { reg }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
@@ -103,7 +94,7 @@ fn add() {
 
     for src in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(InstructionKind::Add { src, dst });
+            asm.assemble_instruction(code!(add { src }, { dst }));
         }
     }
 
@@ -116,8 +107,8 @@ fn jmp() {
 
     let mut asm = Assembler::default();
 
-    for base in REGISTERS {
-        asm.assemble_instruction(InstructionKind::Jump(Address { base, offset: () }));
+    for reg in REGISTERS {
+        asm.assemble_instruction(code!(jmp { reg }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
@@ -129,11 +120,8 @@ fn jz() {
 
     let mut asm = Assembler::default();
 
-    for scr in REGISTERS {
-        asm.assemble_instruction(InstructionKind::JumpIfZero {
-            trg: 0xdeadbeefu32 as i32,
-            scr,
-        });
+    for reg in REGISTERS {
+        asm.assemble_instruction(code!(jz { DEADBEEF32 }, { reg }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
@@ -145,7 +133,7 @@ fn ret() {
 
     let mut asm = Assembler::default();
 
-    asm.assemble_instruction(InstructionKind::Return);
+    asm.assemble_instruction(code!(ret));
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
 }
@@ -156,8 +144,8 @@ fn call() {
 
     let mut asm = Assembler::default();
 
-    for trg in REGISTERS {
-        asm.assemble_instruction(InstructionKind::Call(trg));
+    for reg in REGISTERS {
+        asm.assemble_instruction(code!(call { reg }));
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());

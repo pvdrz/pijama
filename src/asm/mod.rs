@@ -215,3 +215,92 @@ impl Assembler {
         self.buf
     }
 }
+
+#[macro_export]
+macro_rules! reg {
+    (rax) => {
+        Register::Ax
+    };
+    (rcx) => {
+        Register::Cx
+    };
+    (rbx) => {
+        Register::Bx
+    };
+    (rsp) => {
+        Register::Sp
+    };
+    (rbp) => {
+        Register::Bp
+    };
+    (rsi) => {
+        Register::Si
+    };
+    (rdi) => {
+        Register::Di
+    };
+    ($expr:expr) => {
+        $expr
+    };
+}
+
+#[macro_export]
+macro_rules! code {
+    () => {
+        let mut code = vec![];
+    };
+    (loadi {$imm64:expr},{$reg:expr}) => {
+        $crate::asm::InstructionKind::LoadImm {
+            src: $imm64,
+            dst: $crate::reg!($reg),
+        };
+    };
+    (loada {$addr:expr}+{$imm32:expr},{$reg:expr}) => {
+        $crate::asm::InstructionKind::LoadAddr {
+            src: $crate::asm::Address {
+                base: $crate::reg!($addr),
+                offset: $imm32,
+            },
+            dst: $crate::reg!($reg),
+        }
+    };
+    (store {$reg:expr},{$addr:expr}+{$imm32:expr}) => {
+        $crate::asm::InstructionKind::Store {
+            src: $crate::reg!($reg),
+            dst: $crate::asm::Address {
+                base: $crate::reg!($addr),
+                offset: $imm32,
+            },
+        }
+    };
+    (push {$reg:expr}) => {
+        $crate::asm::InstructionKind::Push($crate::reg!($reg))
+    };
+    (pop {$reg:expr}) => {
+        $crate::asm::InstructionKind::Pop($crate::reg!($reg))
+    };
+    (add {$reg1:expr}, {$reg2:expr}) => {
+        $crate::asm::InstructionKind::Add {
+            src: $crate::reg!($reg1),
+            dst: $crate::reg!($reg2),
+        }
+    };
+    (jmp {$addr:expr}) => {
+        $crate::asm::InstructionKind::Jump($crate::asm::Address {
+            base: $crate::reg!($addr),
+            offset: (),
+        })
+    };
+    (jz {$imm32:expr},{$reg:expr}) => {
+        $crate::asm::InstructionKind::JumpIfZero {
+            trg: $imm32,
+            scr: $crate::reg!($reg),
+        }
+    };
+    (ret) => {
+        $crate::asm::InstructionKind::Return
+    };
+    (call {$reg:expr}) => {
+        $crate::asm::InstructionKind::Call($crate::reg!($reg))
+    };
+}
