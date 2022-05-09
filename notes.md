@@ -862,3 +862,55 @@ We test it in the same way as the other instructions:
 ```
 
 And we are done with or tiny assembler!
+
+### Testing our assembler
+
+We will need to modify our assembler in the future to add new instructions or
+to extend the instructions we already have. To be sure that we won't break the
+assembler at least for the instructions we already have we will add some tests.
+
+These tests will compare our assembled instructions to actual `x86_64`
+instructions assembled by the Netwide Assembler or `nasm`, an `x86` assembler.
+
+First we need to write `x86` assembly files and assemble them. To assemble the
+`code.asm` file, we run:
+```bash
+$ nasm code.asm -o code.out
+```
+
+This generates a `code.out` binary file with the assembled instructions. We can
+write a `build.rs` script to assemble these `*.asm` files everytime we change
+them so we don't have to invoke `nasm` manually every single time we change
+something.
+
+After writing the tests for each instruction, I found some differences for
+three of them: `push`, `pop` and `jz`.
+
+The `push` and `pop` instructions are assembled by `nasm` using less bytes.
+Using less bytes means we will have smaller binaries so it is worth to take a
+look.
+
+We used the `PUSH r/m64` and `POP r/m64` instructions but after checking the
+`nasm` output and reading the `x86` manuals, we also have the `PUSH r64` and
+`POP r64` instructions which only take registers as operands and thus have a
+shorter and simpler encoding. Their opcodes are `50 +rd` and `58 +rd`
+respectively, meaning that we can encode both instructions in a single byte by
+taking `0x50` or `0x58` and adding to them the `rd` encoding of the register
+operand.
+
+The `jz` case is bit more interesting. The differences are in the emitted code
+for the `je` instruction, specifically in the operand bytes. It seems that the
+manuals say that the operand is relative to the position of the instruction
+pointer but is the assembler responsability to compute the absolute position
+and then use the absolute position as the operand.
+
+I reached this conclusion because the difference between the outputs is always
+on the least significant byte of the operand and the differences for each
+instruction are 10, 20, 30, 40 and so on. The total length of the emitted code
+is exactly 10 bytes: 4 bytes for the `cmp` instruction and `6` bytes for the
+`je` instruction. Meaning that the difference between the operand bytes in the
+two outputs is exactly the position of the instruction pointer.
+
+Fortunately for us, the position of the instruction pointer is exactly the
+length of the buffer we're using to emit the code, so we can easily add it to
+the operand.

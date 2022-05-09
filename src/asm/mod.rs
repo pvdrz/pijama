@@ -23,17 +23,6 @@ pub enum Register {
 }
 
 impl Register {
-    pub const ALL: &'static [Self] = &[
-        Self::Ax,
-        Self::Cx,
-        Self::Dx,
-        Self::Bx,
-        Self::Sp,
-        Self::Bp,
-        Self::Si,
-        Self::Di,
-    ];
-
     const fn as_rd(self, opcode: u8) -> u8 {
         opcode + self as u8
     }
@@ -158,17 +147,15 @@ impl Assembler {
     }
 
     fn assemble_push(&mut self, reg: Register) {
-        let opcode = 0xFF;
-        let mod_rm = ModRmBuilder::new().direct().reg(0x6).rm(reg as u8).build();
+        let opcode = 0x50 + reg as u8;
 
-        self.buf.extend_from_slice(&[opcode, mod_rm]);
+        self.buf.extend_from_slice(&[opcode]);
     }
 
     fn assemble_pop(&mut self, reg: Register) {
-        let opcode = 0x8F;
-        let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(reg as u8).build();
+        let opcode = 0x58 + reg as u8;
 
-        self.buf.extend_from_slice(&[opcode, mod_rm]);
+        self.buf.extend_from_slice(&[opcode]);
     }
 
     fn assemble_add(&mut self, src: Register, dst: Register) {
@@ -194,10 +181,14 @@ impl Assembler {
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
-    fn assemble_jump_if_zero(&mut self, trg: Imm32, scr: Register) {
+    fn assemble_jump_if_zero(&mut self, mut trg: Imm32, scr: Register) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x83;
         let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(scr as u8).build();
+
+        // apparently we need to make the target relative to the location of the instruction
+        // pointer after reading the instruction. This instruction always takes 10 bytes.
+        trg -= self.buf.len() as i32 + 0xa;
 
         // cmp scr,0x0
         self.buf

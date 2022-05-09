@@ -1,8 +1,5 @@
-mod asm;
-
 use std::{error::Error as StdError, fs::File, io::BufWriter};
 
-use asm::{Address, Assembler, InstructionKind, Register};
 use object::{
     write::{Object, SectionId, StandardSection, SymbolSection},
     Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
@@ -36,105 +33,6 @@ fn main() -> Result<(), Box<dyn StdError>> {
             0xc3,
         ],
     );
-
-    let mut assembler = Assembler::default();
-
-    for &dst in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::LoadImm {
-            src: 0xdeadbeef,
-            dst,
-        });
-    }
-
-    add_function(&mut obj, section, b"loadi_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &base in Register::ALL {
-        for &dst in Register::ALL {
-            assembler.assemble_instruction(InstructionKind::LoadAddr {
-                src: asm::Address {
-                    base,
-                    offset: 0xbeef,
-                },
-                dst,
-            });
-        }
-    }
-
-    add_function(&mut obj, section, b"loada_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &src in Register::ALL {
-        for &base in Register::ALL {
-            assembler.assemble_instruction(InstructionKind::Store {
-                src,
-                dst: asm::Address {
-                    base,
-                    offset: 0xbeef,
-                },
-            });
-        }
-    }
-
-    add_function(&mut obj, section, b"store_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &reg in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::Push(reg));
-    }
-
-    add_function(&mut obj, section, b"push_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &reg in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::Pop(reg));
-    }
-
-    add_function(&mut obj, section, b"pop_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &src in Register::ALL {
-        for &dst in Register::ALL {
-            assembler.assemble_instruction(InstructionKind::Add { src, dst });
-        }
-    }
-
-    add_function(&mut obj, section, b"add_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &base in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::Jump(asm::Address { base, offset: () }));
-    }
-
-    add_function(&mut obj, section, b"jmp_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &scr in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::JumpIfZero { trg: 0xbeef, scr });
-    }
-
-    add_function(&mut obj, section, b"jz_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    assembler.assemble_instruction(InstructionKind::Return);
-
-    add_function(&mut obj, section, b"ret_test", &assembler.emit_code());
-
-    let mut assembler = Assembler::default();
-
-    for &trg in Register::ALL {
-        assembler.assemble_instruction(InstructionKind::Call(trg));
-    }
-
-    add_function(&mut obj, section, b"call_test", &assembler.emit_code());
 
     // Write the object file.
     obj.write_stream(file)?;
