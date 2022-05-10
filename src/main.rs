@@ -4,6 +4,8 @@ use object::{
     write::{Object, SectionId, StandardSection, SymbolSection},
     Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
 };
+use pijama::asm::Assembler;
+use pijama::code;
 
 fn main() -> Result<(), Box<dyn StdError>> {
     let file = BufWriter::new(File::create("./lib_2.o")?);
@@ -14,25 +16,17 @@ fn main() -> Result<(), Box<dyn StdError>> {
     // Create the `.text` section.
     let section = obj.section_id(StandardSection::Text);
 
-    add_function(
-        &mut obj,
-        section,
-        b"start",
-        &[
-            0x55, 0x48, 0x89, 0xe5, 0xb8, 0x0a, 0x00, 0x00, 0x00, 0x5d, 0xc3, 0x0f, 0x1f, 0x44,
-            0x00, 0x00,
-        ],
-    );
+    let mut asm = Assembler::default();
+    asm.assemble_instruction(code!(loadi {0x9}, {rax}));
+    asm.assemble_instruction(code!(ret));
+    add_function(&mut obj, section, b"start", &asm.emit_code());
 
-    add_function(
-        &mut obj,
-        section,
-        b"duplicate",
-        &[
-            0x55, 0x48, 0x89, 0xe5, 0x89, 0x7d, 0xfc, 0x8b, 0x45, 0xfc, 0xc1, 0xe0, 0x01, 0x5d,
-            0xc3,
-        ],
-    );
+    let mut asm = Assembler::default();
+    asm.assemble_instruction(code!(loadi {0x0}, {rax}));
+    asm.assemble_instruction(code!(add {rdi}, {rax}));
+    asm.assemble_instruction(code!(add {rdi}, {rax}));
+    asm.assemble_instruction(code!(ret));
+    add_function(&mut obj, section, b"duplicate", &asm.emit_code());
 
     // Write the object file.
     obj.write_stream(file)?;

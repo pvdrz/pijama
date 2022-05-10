@@ -934,3 +934,68 @@ two outputs is exactly the position of the instruction pointer.
 Fortunately for us, the position of the instruction pointer is exactly the
 length of the buffer we're using to emit the code, so we can easily add it to
 the operand.
+
+### Emitting functions
+
+Now that we can emit valid `x86_64` machine code we should be able to write our
+own functions inside it. To be able to do this we need to understand how
+function calls and returns work. In other words, we need to understand the
+calling convention. At least on Linux for `x86_64` machines, the calling
+convention is defined by the System V ABI (this specification also defines ELF,
+among other things).
+
+This ABI specifies that parameters must be passed in the registers `rdi`,
+`rsi`, `rdx`, `rcx`, `r8` and`r9`. If a function takes more parameters, these
+are passed on the stack.
+
+When the `call` instruction is executed, the location of the next instruction
+is pushed into the stack. When `return` is executed, this location is popped
+from the stack and the instruction pointer jumps to it.
+
+Functions should leave the registers `rbx`, `rsp`, `rbp`, `r12`, `r13`, `r14`
+and `r1` in the same state as they were before being called. The `rax`, `rdi`,
+`rsi`, `rdx`, `rcx`, `r8`, `r9`, `r10` and `r11` registers can be modified
+freely. The return value must be stored in `rax`.
+
+Now we are ready to emit our own functions. We will start with the simple
+`start` function that we had in our `lib.c` file:
+
+```c
+long start() {
+    return 10;
+}
+```
+
+From what we saw, the only thing we need to do is put the value `10` in the
+`rax` register and then return, or in our assembly syntax:
+```asm
+loadi 0xa,rax
+ret
+```
+
+We can do something more interesting like the `duplicate` function:
+```c
+long duplicate(long value) {
+    return 2 * value;
+}
+```
+
+Sadly we don't have a multiply instruction yet but we can do `value + value`
+instead.
+
+We know from the ABI that `rdi` has the first parameter of any function and
+that the return value must be in the `rax` register. One way to write our
+function would be
+
+```asm
+loadi 0x0,rax
+add   rdi,rax
+add   rdi,rax
+ret
+```
+
+We first set the `rax` register to zero to be on the safe side and then add
+`value` twice to `rax`.
+
+If we link `main.c` against our object file and run it, we should get the same
+output as with the `lib.c` library.
