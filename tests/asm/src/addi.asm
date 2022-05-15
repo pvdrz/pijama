@@ -1,0 +1,9 @@
+BITS 64
+add rax,-0x21524111
+add rcx,-0x21524111
+add rdx,-0x21524111
+add rbx,-0x21524111
+add rsp,-0x21524111
+add rbp,-0x21524111
+add rsi,-0x21524111
+add rdi,-0x21524111

@@ -332,7 +332,7 @@ We will start with the following instructions
 ┌────────────────┬──────────────────────┬──────────────────────────────────────────────────────────┐
 │      Name      │   Instruction        │     Description                                          │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Load Immediate │ loadi imm64,reg      │ Load the im64 value into reg.                            │
+│ Load Immediate │ loadi imm64,reg      │ Load the imm64 value into reg.                           │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
 │ Load Address   │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.              │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
@@ -343,6 +343,8 @@ We will start with the following instructions
 │ Pop            │ pop reg              │ Pop a value from the stack and put it in reg.            │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
 │ Add            │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.        │
+├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
+│ Add Immediate  │ addi imm32,reg       │ Add the imm32 value to the contents of reg.              │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
 │ Jump           │ jmp addr             │ Jump to the value stored in addr.                        │
 ├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
@@ -751,6 +753,37 @@ Disassembly of section .text:
  4db:   48 01 f9                add    rcx,rdi
  4de:   48 01 fa                add    rdx,rdi
  ```
+
+#### Add Immediate
+
+We will use the `ADD r/m64, imm32` instruction which adds the `imm32` value to
+the contents of `r/m64` (the converse of our convention). This instruction has
+the opcode `REX.W + 81 /0 id` meaning that the `REX.W` byte is set and that the
+`reg` field must be set to `0x0`. Additionally, the first operand is encoded in
+the `r/m` field and the second operand is encoded as bytes after the `mod r/m`
+byte.
+
+However, our `addi` instruction has a particular case that can be written using
+fewer bytes thanks to the `ADD RAX, imm32` instruction (yes, `x86_64` has a
+specific "add to `rax`" instruction), its opcode is `REX.W + 05 id` and the
+operand is encoded as bytes after the opcode.
+
+We test this instruction in the same way as we did with the load immediate
+instruction:
+
+```objdump
+Disassembly of section .text:
+
+0000000000000030 <addi_test>:
+  30:   48 05 ef be ad de       add    rax,0xffffffffdeadbeef
+  36:   48 81 c1 ef be ad de    add    rcx,0xffffffffdeadbeef
+  3d:   48 81 c2 ef be ad de    add    rdx,0xffffffffdeadbeef
+  44:   48 81 c3 ef be ad de    add    rbx,0xffffffffdeadbeef
+  4b:   48 81 c4 ef be ad de    add    rsp,0xffffffffdeadbeef
+  52:   48 81 c5 ef be ad de    add    rbp,0xffffffffdeadbeef
+  59:   48 81 c6 ef be ad de    add    rsi,0xffffffffdeadbeef
+  60:   48 81 c7 ef be ad de    add    rdi,0xffffffffdeadbeef
+```
 
 #### Jump
 

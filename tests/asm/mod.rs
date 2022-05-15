@@ -102,6 +102,19 @@ fn add() {
 }
 
 #[test]
+fn addi() {
+    let expected_bytes = include_bytes!("addi.out");
+
+    let mut asm = Assembler::default();
+
+    for dst in REGISTERS {
+        asm.assemble_instruction(code!(addi { DEADBEEF32 }, { dst }));
+    }
+
+    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+}
+
+#[test]
 fn jmp() {
     let expected_bytes = include_bytes!("jmp.out");
 

@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let mut asm = Assembler::default();
     asm.assemble_instruction(code!(loadi {0x0}, {rax}));
-    asm.assemble_instruction(code!(add {rdi}, {rax}));
-    asm.assemble_instruction(code!(add {rdi}, {rax}));
+    asm.assemble_instruction(code!(add { rdi }, { rax }));
+    asm.assemble_instruction(code!(add { rdi }, { rax }));
     asm.assemble_instruction(code!(ret));
     add_function(&mut obj, section, b"duplicate", &asm.emit_code());
 

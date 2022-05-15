@@ -40,6 +40,7 @@ pub enum InstructionKind {
     Push(Register),
     Pop(Register),
     Add { src: Register, dst: Register },
+    AddImm { src: Imm32, dst: Register },
     Jump(Address<()>),
     JumpIfZero { trg: Imm32, scr: Register },
     Return,
@@ -80,6 +81,7 @@ impl Assembler {
             InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
+            InstructionKind::AddImm { src, dst } => self.assemble_add_imm(src, dst),
             InstructionKind::Jump(addr) => self.assemmble_jump(addr),
             InstructionKind::JumpIfZero { trg, scr } => self.assemble_jump_if_zero(trg, scr),
             InstructionKind::Return => self.assemble_return(),
@@ -168,6 +170,23 @@ impl Assembler {
             .build();
 
         self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+    }
+
+    fn assemble_add_imm(&mut self, src: i32, dst: Register) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+
+        if let Register::Ax = dst {
+            let opcode = 0x05;
+
+            self.buf.extend_from_slice(&[rex_prefix, opcode]);
+        } else {
+            let opcode = 0x81;
+            let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
+
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        }
+
+        self.buf.extend_from_slice(&src.to_le_bytes());
     }
 
     fn assemmble_jump(&mut self, addr: Address<()>) {
@@ -282,7 +301,12 @@ macro_rules! code {
             dst: $crate::reg!($($reg2)*),
         }
     };
-    (jmp {$($addr:tt)*}) => {
+     (addi {$imm32:expr},{$($reg:tt)+}) => {
+        $crate::asm::InstructionKind::AddImm {
+            src: $imm32,
+            dst: $crate::reg!($($reg)+),
+        };
+    };   (jmp {$($addr:tt)*}) => {
         $crate::asm::InstructionKind::Jump($crate::asm::Address {
             base: $crate::reg!($($addr)*),
             offset: (),
