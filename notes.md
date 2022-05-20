@@ -282,10 +282,14 @@ usually shown as `MOV`, followed by a 64-bit register or memory operand and
 then a register operand. In our case, both operands are registers.
 
 The `Op/En` or operand encoding column specifies how the operands are encoded.
+Each instruction has a table in the Intel manual explaining the actual encoding
+of the operands as this varies between instructions. For the `MOV` instruction
 `MR` means that the first operand is encoded in the `r/m` field and that the
 second operand is encoded in the `reg` field.
 
-The `64-Bit Mode` column says if this instruction supports in 64-bit mode or not.
+The `64-Bit Mode` and `Compat/Leg Mode` columns specify if this instruction is
+valid in 64-bit mode and compatibility mode. We will choose instructions that
+are valid in 64-bit mode and ignore the compatibility mode.
 
 Now we can try to reconstruct the instruction:
 
@@ -315,45 +319,50 @@ To encode the `bp` register as the first operand we set `mod` to `0b11` and
 So the machine code should be `48 89 e5`. Just like what we have in our
 disassembled object file.
 
-As we can see, the x86 instruction set is very complex and providing every
-single instruction in the set would be an almost impossible task. The good news
-is that given that we are writing our own assembler we can implement a subset
-of it.
+As we can see, the x86 instruction set is very complex and writing code to
+assemble every single instruction in the set would be an herculean task. But,
+given that we are writing our own assembler, we can design our own instruction
+set and encode it as valid `x86-64` instructions.
+
+One reason to do this instead of just using a strict subset of the actual `x86`
+instruction set is that it should be easier to port this assembler to other
+platforms. If you're familiar with ARM, RISC-V or any other reduced instruction
+set you'll notice that I took some inspiration from them.
 
 ### Writing a small instruction set
 
-For now we will only support 64-bit operands. Smaller operands can be supported by
-either casting them to 64-bit integers or by extending our instruction set
-later.
-
-We will start with the following instructions
+This will be our starting instruction set:
 
 ```
-┌────────────────┬──────────────────────┬──────────────────────────────────────────────────────────┐
-│      Name      │   Instruction        │     Description                                          │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Load Immediate │ loadi imm64,reg      │ Load the imm64 value into reg.                           │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Load Address   │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.              │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Store          │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.             │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Push           │ push reg             │ Push the contents of reg into the stack.                 │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Pop            │ pop reg              │ Pop a value from the stack and put it in reg.            │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Add            │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.        │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Add Immediate  │ addi imm32,reg       │ Add the imm32 value to the contents of reg.              │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Jump           │ jmp addr             │ Jump to the value stored in addr.                        │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Jump If Zero   │ jz imm32,reg         │ Jump imm32 bytes if the contents of reg are zero.        │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Return         │ ret                  │ Transfer control to the address in the top of the stack. │
-├────────────────┼──────────────────────┼──────────────────────────────────────────────────────────┤
-│ Call           │ call reg             │ Transfer control to the address contained in reg.        │
-└────────────────┴──────────────────────┴──────────────────────────────────────────────────────────┘
+┌──────────────────────┬──────────────────────┬────────────────────────────────────────────────────────────────────────────────────┐
+│ Name                 │ Instruction          │ Description                                                                        │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Load Immediate       │ loadi imm64,reg      │ Load the imm64 value into reg.                                                     │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Load Address         │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.                                        │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Store                │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.                                       │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Push                 │ push reg             │ Push the contents of reg into the stack.                                           │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Pop                  │ pop reg              │ Pop a value from the stack and put it in reg.                                      │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Add                  │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.                                  │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Add Immediate        │ addi imm32,reg       │ Add the imm32 value to the contents of reg.                                        │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump                 │ jmp addr             │ Jump to the value stored in addr.                                                  │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump If Equal        │ jz reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are equal to the contents of reg2.        │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump If Less Than    │ jl reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are smaller than to the contents of reg2. │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Jump If Greater Than │ jg reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are larger than to the contents of reg2.  │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Return               │ ret                  │ Transfer control to the address in the top of the stack.                           │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Call                 │ call reg             │ Transfer control to the address contained in reg.                                  │
+└──────────────────────┴──────────────────────┴────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Before starting to generate machine code for these instructions we need to
@@ -361,7 +370,7 @@ clearly define their operands.
 
 The easiest operand kind to understand are the immediates `imm32` and `imm64`
 which are just constant signed integer values. We represent them with the `i32`
-and `i64` types.
+and `i64` types in Rust.
 
 Then we have registers or `reg`. The `x86_64` architecture has 16 general
 purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
@@ -373,17 +382,72 @@ them.
 Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that base addresses are stored in a register, we will extend this
 later. The base address can be modified by adding an offset to the base
-address, this offset can only be an `imm32` but not an `imm64` (this is a
+address, this offset can only be an `imm32` and not an `imm64` (this is a
 limitation of the `x86` instruction set).
 
 Now we are ready to encode those instructions as valid `x86_64` machine code.
+These are the instructions that we will use taken from the Intel's manual:
+
+```
+┌───────────────────┬─────────────────┬───────┬───────────────────────────────────────────────────────┐
+│ Opcode            │ Instruction     │ Op/En │ Description                                           │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + B8+ rd io │ MOV r64, imm64  │ OI    │ Move imm64 to r64.                                    │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 8B /r     │ MOV r64,r/m64   │ RM    │ Move r/m64 to r64.                                    │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 89 /r     │ MOV r/m64,r64   │ MR    │ Move r64 to m/r64.                                    │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ FF /6             │ PUSH r/m64      │ M     │ Push r/m64.                                           │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 8F /0             │ POP r/m64       │ M     │ Pop top of stack into m64; increment stack pointer.   │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 01 /r     │ ADD r/m64,r64   │ MR    │ Add r64 to r/m64.                                     │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 81 /0 id  │ ADD r/m64,imm32 │ MI    │ Add imm32 sign-extended to 64-bits to r/m64.          │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 05 id     │ ADD RAX,imm32   │ I     │ Add imm32 sign-extended to 64-bits to RAX.            │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ FF /4             │ JMP r/m64       │ M     │ Jump near, absolute indirect.                         │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 39 /r     │ CMP r/m64,r64   │ MR    │ Compare r64 with r/m64.                               │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 0F 84 cd          │ JE rel32        │ D     │ Jump near if equal.                                   │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 0F 8C cd          │ JL rel32        │ D     │ Jump near if less.                                    │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 0F 8F cd          │ JG rel32        │ D     │ Jump near if greater                                  │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ C3                │ RET             │ ZO    │ Near return to calling procedure.                     │
+├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ FF /2             │ CALL r/m64      │ M     │ Call near, absolute indirect, address given in r/m64. │
+└───────────────────┴─────────────────┴───────┴───────────────────────────────────────────────────────┘
+```
+
+all these instructions are valid in 64-bit mode. One important thing to notice
+is that our syntax for two-operand instructions is different from Intel's syntax:
+
+- In our syntax, the source operand precedes the destination operand, just like
+  AT&T's syntax.
+
+- In Intel's syntax, the destination operand precedes the source operand.
+
+This means that our `addi 0x1,rax` instruction corresponds to the `ADD rax,0x1`
+instruction using Intel's syntax.
+
+You could also notice that all control-flow related instructions use the word
+"near". This has to do with memory segmentation: near operations are
+constrained to a single memory segment while far operations can move between
+segments. Given that Linux has a flat-memory model and, more importantly, that
+64-bit mode does not use segmentation, we won't be using "far" instructions at
+all.
 
 #### Load Immediate
 
-To load an immedate to a register we will use the `MOV r64,imm64` instruction
-which has the opcode `REX.W + B8+ rd io`. The first operand is encoded by
-adding an `rd` value representing the register to the `0xB8` opcode and setting the
-`REX.B` bit to zero. The second operand is encoded as the literal value.
+To load an immedate to a register we will use the `MOV r64,imm64` instruction.
+The first operand is encoded by adding an `rd` value representing the register
+to the `0xB8` opcode and setting the `REX.B` bit to zero. The second operand is
+encoded as trailing bytes.
 
 The `rd` value changes from 0 to 7 for the first 8 general purpose registers in
 the order they are written above.
@@ -408,12 +472,11 @@ Everything looks in order, so we are done with this instruction.
 
 #### Load Address
 
-To load something from an address to a register we will use the `MOV r64,r/m64`
-instruction which has the opcode `REX.W + 8B /r`, meaning that is pretty
-similar to the first `MOV` instruction that we encoded. However, this
-instruction encodes the operands in the reverse order inside the `Mod R/M`
-byte: The first operand uses the `reg` field and the second operand uses the
-`r/m` field.
+To load something from an address to a register we will use the `MOV
+r64,r/m64`, the only difference between this instruction and the `MOV
+r/m64,r64` instruction is that the operands are encoded in the reverse order:
+The first operand uses the `reg` field and the second operand uses the `r/m`
+field.
 
 The AMD manual does a great work explaining the logic behind the `Mod R/M` byte
 encoding:
@@ -434,24 +497,24 @@ From this information we can build a pretty cool builder for `Mod R/M` bytes.
 This has the advantage that we won't mistype or forget to set a field of the
 byte that easily.
 
-Going back to the `MOV` instruction, we know that the first operand goes in the
-`reg` field, and at least for this instruction it uses the same encoding as the
-`+rd` value we saw in the previous `MOV` instruction. The actual encoding for
-this field changes according to the instruction.
+Going back to the `MOV r64,r/m64` instruction, we know that the first operand
+goes in the `reg` field, and at least for this instruction it uses the same
+encoding as the `+rd` value we saw in the previous `MOV r/m64,r64` instruction.
+The actual encoding for this field changes according to the instruction.
 
 The second operand is a bit more interesting to encode because addresses are
 composed of a base address in a register and an offset. The operand has to use
 the indirect-register mode because we want the address that the register holds.
 But now we need to know how to encode the offset.
 
-According to the AMD manual, setting `mod` to `0b01` or `0b10` allows us to
-encode the offset in the `Displacement` field. Given that our offsets are
+According to the AMD manual, setting the `mod` field to `0b01` or `0b10` allows
+us to encode the offset in the `Displacement` field. Given that our offsets are
 `imm32`, they fit perfectly using a 4-byte length displacement field.
 
-Then we can use `r/m` to encode the actual register with almost same encoding
-as `reg`. The only difference is that when we are not in direct-register mode
-the `0b100` value doesn't correspond to the `rsp` register but instead enables
-the `SIB` mode.
+Then we can use the `r/m` field to encode the actual register with almost same
+encoding as the `reg` field. The only difference is that when we are not in
+direct-register mode, the `0b100` value doesn't correspond to the `rsp`
+register but instead enables the `SIB` mode.
 
 However, we can use the `SIB` byte to specify the `rsp` register. As we saw
 before, the `SIB` byte is composed of three fields:
@@ -555,15 +618,17 @@ We can move to the next instruction now.
 #### Store
 
 Store is the inverse of the load address instruction so it is reasonable to use
-the instruction `MOV r/m64,r64`. But this was the example instruction that we
-used to understand how to emit machine code. So it should be pretty straightforward.
+the instruction `MOV r/m64,r64`. Actually, this was the example instruction
+that we used to understand how to emit machine code. So it should be pretty
+straightforward.
 
 We have to set the `REX.W` byte to enable 64-bit mode, the first operand is
 encoded in the `r/m` field and that the second operand is encoded in the `reg`
 field. This means that we can reuse most of the code that we did for the load
 address instruction because the arguments are flipped.
 
-We can test this instruction by doing the same we did for the load address instruction:
+We can test this instruction by doing the same we did for the load address
+instruction:
 ```objdump
 Disassembly of section .text:
 
@@ -637,9 +702,9 @@ Disassembly of section .text:
 #### Push
 
 The push instruction is the first instruction that we can basically copy from
-the `x86_64` manual. We will use the `PUSH r/m64` instruction which has the
-opcode `FF /6` and encodes its operand in the `r/m` field. The `/6` means that
-the `reg` field must be set to `0x6` to encode this instruction.
+the `x86_64` manual. We will use the `PUSH r/m64` instruction which encodes its
+operand in the `r/m` field. The `/6` in the opcode means that the `reg` field
+must be set to `0x6` to encode this instruction.
 
 We test this in the same as way we did with the `loadi` instruction:
 ```objdump
@@ -659,9 +724,8 @@ Disassembly of section .text:
 #### Pop
 
 We can also copy the pop instruction from the manual. The actual instruction is
-`POP r/m64`, the opcode is `8F /0` and the operand is encoded in the `r/m`
-field. Analogous to the push instruction, `/0` means that the `reg` field is
-set to zero.
+`POP r/m64`, the operand is encoded in the `r/m` field. Analogous to the push
+instruction, the `/0` in the opcode means that the `reg` field is set to zero.
 
 We test this instruction in the same way as before:
 ```objdump
@@ -680,14 +744,13 @@ Disassembly of section .text:
 
 #### Add
 
-The instruction we will use for add is `ADD r/m64, r64` which has the opcode
-`REX.W + 01 /r`. The first operand is encoded in the `r/m` field and the second
-one in the `reg` field. However, intel puts the arguments in the reverse order
-as we do. Meaning that this instruction adds to the first operand, not to the
-second. Putting that detail aside, emitting this instruction should be
-straightforward.
+The instruction we will use for add is `ADD r/m64, r64` which encodes the first
+operand in the `r/m` field and the second one in the `reg` field. We have to be
+careful with the syntax order but other than that, emitting this instruction
+should be straightforward.
 
-We test this instruction in the same way as we did with the load address instruction:
+We test this instruction in the same way as we did with the load address
+instruction:
 
 ```objdump
 Disassembly of section .text:
@@ -756,17 +819,15 @@ Disassembly of section .text:
 
 #### Add Immediate
 
-We will use the `ADD r/m64, imm32` instruction which adds the `imm32` value to
-the contents of `r/m64` (the converse of our convention). This instruction has
-the opcode `REX.W + 81 /0 id` meaning that the `REX.W` byte is set and that the
-`reg` field must be set to `0x0`. Additionally, the first operand is encoded in
-the `r/m` field and the second operand is encoded as bytes after the `mod r/m`
-byte.
+We will use the `ADD r/m64,imm32` instruction which adds the `imm32` value to
+the contents of `r/m64`. This instruction is encoded by setting the `REX.W`
+byte and setting the `reg` field to `0x0`. Additionally, the first operand is
+encoded in the `r/m` field and the second operand is encoded as bytes after the
+`mod r/m` byte.
 
 However, our `addi` instruction has a particular case that can be written using
-fewer bytes thanks to the `ADD RAX, imm32` instruction (yes, `x86_64` has a
-specific "add to `rax`" instruction), its opcode is `REX.W + 05 id` and the
-operand is encoded as bytes after the opcode.
+fewer bytes thanks to the `ADD RAX,imm32` instruction (yes, `x86_64` has a
+specific "add to `rax`" instruction).
 
 We test this instruction in the same way as we did with the load immediate
 instruction:
@@ -787,13 +848,9 @@ Disassembly of section .text:
 
 #### Jump
 
-We will use the `JMP r/m64` instruction which has the opcode `FF /4` meaning
-that we must set the `rem` field to `0x4`. The operand is encoded in the `r/m`
-field.
-
-This instruction is a "near" jump. Meaning that it can only be used to jump to
-code in the same segment. I am not sure if this is relevant for our use case
-and we should check later what to do about it.
+We will use the `JMP r/m64` instruction which from the `/4` in the opcode, we
+know that we must set the `rem` field to `0x4`. The operand is encoded in the
+`r/m` field.
 
 We test this instruction in the same way as the other single operand instructions:
 ```objdump
@@ -810,12 +867,13 @@ Disassembly of section .text:
  4fe:   ff e7                   jmp    rdi
 ```
 
-#### Jump If Zero
+#### Conditional Jumps
 
-This instruction performs a conditional jump if the value contained in the
-second operand is zero. The final position of the jump is in the first operand
-but this is relative to the current location (in other words, the position of
-the instruction pointer after reading this instruction).
+We will start with the Jump If Zero instruction. This instruction performs a
+conditional jump if the value contained in the second operand is zero. The
+final position of the jump is in the first operand but this is relative to the
+current location (in other words, the position of the instruction pointer after
+reading this instruction).
 
 This is an interesting instruction because we cannot encode it as a single
 `x86_64` instruction. Conditional jumps in `x86` are done by first comparing
@@ -825,21 +883,19 @@ decide to jump or not. This `RFLAGS` register is a sequence of status flags
 indicating the result of the comparison.
 
 So the first thing we need to do emit a compare instruction between our operand
-and zero. We will use the `CMP r/m64, imm8` which has the opcode `REX.W + 83 /7
-ib`, encodes the first operand in the `r/m` field and the second operand as
-bytes at the end of the instruction. This `CMP` instruction substracts the
-second operand from the first and sets the status flags in the `RFLAGS`
-register based on the result of the substraction.
+and zero. We will use the `CMP r/m64,r64` which encodes the first operand in
+the `r/m` field and the second operand in the `reg` field. This instruction
+substracts the second operand from the first and sets the status flags in the
+`RFLAGS` register based on the result of the substraction.
 
-We can use this `CMP` instruction with the second operand as zero and then use
-the `JE rel32` or jump if equal instruction which has the opcode `0F 84 cd` and
-encodes the operand by appending it after the `0x84` byte.
+We can use this instruction and then use the `JE rel32` or jump if equal
+instruction which encodes the operand by appending it after the `0x84` byte.
 
 In other words, we will emit the following code to encode our `jz imm32,reg`:
 
 ```nasm
-cmp  reg,0x0 ; compare `reg` to zero.
-je   imm32   ; if `reg == 0`, jump to `imm32`.
+cmp  reg2,reg1 ; compare `reg1` to `reg2`.
+je   imm32   ; if `reg1 == reg2`, jump to `imm32`.
 ```
 
 We test this instruction in the same way as the others:
@@ -878,12 +934,13 @@ position immediately after the `je` instruction). In other words the, current
 position is `<jz_test+0x0a>`. Which means that the relative offset between the
 two positions is `0xbef9 - 0x0a` which is exactly `0xbeef`.
 
+The other two instructions are encoded in a similar way but using the `JL
+rel32` and `JG rel32` instructions instead of `JE rel32`.
+
 #### Return
 
 After all this madness we go back to a simple instruction. We will use the near
-return instruction `RET` which has the opcode `C3` and takes no operands. There
-is a far return instruction, but apparently far returns and jumps have no
-purpose in modern processors.
+return instruction `RET` which takes no operands.
 
 Testing it is really simple:
 ```objdump
@@ -896,10 +953,9 @@ Disassembly of section .text:
 #### Call
 
 For this last instruction we will use the near call instruction `CALL r/m64`
-which has the opcode `FF /2` and encodes its operand in the `rm` field.
+which encodes its operand in the `rm` field.
 
 We test it in the same way as the other instructions:
-
 ```objdump
 Disassembly of section .text:
 

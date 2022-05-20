@@ -34,15 +34,44 @@ pub struct Address<I> {
 }
 
 pub enum InstructionKind {
-    LoadImm { src: Imm64, dst: Register },
-    LoadAddr { src: Address<Imm32>, dst: Register },
-    Store { src: Register, dst: Address<Imm32> },
+    LoadImm {
+        src: Imm64,
+        dst: Register,
+    },
+    LoadAddr {
+        src: Address<Imm32>,
+        dst: Register,
+    },
+    Store {
+        src: Register,
+        dst: Address<Imm32>,
+    },
     Push(Register),
     Pop(Register),
-    Add { src: Register, dst: Register },
-    AddImm { src: Imm32, dst: Register },
+    Add {
+        src: Register,
+        dst: Register,
+    },
+    AddImm {
+        src: Imm32,
+        dst: Register,
+    },
     Jump(Address<()>),
-    JumpIfZero { trg: Imm32, scr: Register },
+    JumpEq {
+        reg1: Register,
+        reg2: Register,
+        target: Imm32,
+    },
+    JumpLt {
+        reg1: Register,
+        reg2: Register,
+        target: Imm32,
+    },
+    JumpGt {
+        reg1: Register,
+        reg2: Register,
+        target: Imm32,
+    },
     Return,
     Call(Register),
 }
@@ -83,9 +112,17 @@ impl Assembler {
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::AddImm { src, dst } => self.assemble_add_imm(src, dst),
             InstructionKind::Jump(addr) => self.assemmble_jump(addr),
-            InstructionKind::JumpIfZero { trg, scr } => self.assemble_jump_if_zero(trg, scr),
+            InstructionKind::JumpEq { reg1, reg2, target } => {
+                self.assemble_conditional_jump::<0x84>(reg1, reg2, target)
+            }
+            InstructionKind::JumpLt { reg1, reg2, target } => {
+                self.assemble_conditional_jump::<0x8C>(reg1, reg2, target)
+            }
+            InstructionKind::JumpGt { reg1, reg2, target } => {
+                self.assemble_conditional_jump::<0x8F>(reg1, reg2, target)
+            }
             InstructionKind::Return => self.assemble_return(),
-            InstructionKind::Call(trg) => self.assemble_call(trg),
+            InstructionKind::Call(target) => self.assemble_call(target),
         }
     }
 
@@ -200,21 +237,46 @@ impl Assembler {
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
-    fn assemble_jump_if_zero(&mut self, mut trg: Imm32, scr: Register) {
+    fn assemble_jump_if_zero(&mut self, mut target: Imm32, scr: Register) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x83;
         let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(scr as u8).build();
 
         // apparently we need to make the target relative to the location of the instruction
         // pointer after reading the instruction. This instruction always takes 10 bytes.
-        trg -= self.buf.len() as i32 + 0xa;
+        target -= self.buf.len() as i32 + 0xa;
 
         // cmp scr,0x0
         self.buf
             .extend_from_slice(&[rex_prefix, opcode, mod_rm, 0x0]);
-        // je trg
+        // je target
         self.buf.extend_from_slice(&[0x0F, 0x84]);
-        self.buf.extend_from_slice(&trg.to_le_bytes());
+        self.buf.extend_from_slice(&target.to_le_bytes());
+    }
+
+    fn assemble_conditional_jump<const OPCODE: u8>(
+        &mut self,
+        reg1: Register,
+        reg2: Register,
+        mut target: i32,
+    ) {
+        let rex_prefix = RexPrefix::new(true, false, false);
+        let opcode = 0x39;
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(reg1 as u8)
+            .rm(reg2 as u8)
+            .build();
+
+        // apparently we need to make the target relative to the location of the instruction
+        // pointer after reading the instruction. This instruction always takes 9 bytes.
+        target -= self.buf.len() as i32 + 0x9;
+
+        // cmp reg2,reg1
+        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        // je target
+        self.buf.extend_from_slice(&[0x0F, OPCODE]);
+        self.buf.extend_from_slice(&target.to_le_bytes());
     }
 
     fn assemble_return(&mut self) {
@@ -223,9 +285,13 @@ impl Assembler {
         self.buf.extend_from_slice(&[opcode]);
     }
 
-    fn assemble_call(&mut self, trg: Register) {
+    fn assemble_call(&mut self, target: Register) {
         let opcode = 0xFF;
-        let mod_rm = ModRmBuilder::new().direct().reg(0x2).rm(trg as u8).build();
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(0x2)
+            .rm(target as u8)
+            .build();
 
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
@@ -312,10 +378,25 @@ macro_rules! code {
             offset: (),
         })
     };
-    (jz {$imm32:expr},{$($reg:tt)*}) => {
-        $crate::asm::InstructionKind::JumpIfZero {
-            trg: $imm32,
-            scr: $crate::reg!($($reg)*),
+    (je {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+        $crate::asm::InstructionKind::JumpEq {
+            reg1: $crate::reg!($($reg1)*),
+            reg2: $crate::reg!($($reg2)*),
+            target: $imm32,
+        }
+    };
+    (jl {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+        $crate::asm::InstructionKind::JumpLt {
+            reg1: $crate::reg!($($reg1)*),
+            reg2: $crate::reg!($($reg2)*),
+            target: $imm32,
+        }
+    };
+    (jg {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+        $crate::asm::InstructionKind::JumpGt {
+            reg1: $crate::reg!($($reg1)*),
+            reg2: $crate::reg!($($reg2)*),
+            target: $imm32,
         }
     };
     (ret) => {

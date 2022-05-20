@@ -128,17 +128,49 @@ fn jmp() {
 }
 
 #[test]
-fn jz() {
-    let expected_bytes = include_bytes!("jz.out");
+fn je() {
+    let expected_bytes = include_bytes!("je.out");
 
     let mut asm = Assembler::default();
 
-    for reg in REGISTERS {
-        asm.assemble_instruction(code!(jz { DEADBEEF32 }, { reg }));
+    for reg1 in REGISTERS {
+        for reg2 in REGISTERS {
+            asm.assemble_instruction(code!(je { reg1 }, { reg2 }, { DEADBEEF32 }));
+        }
     }
 
     assert_eq!(expected_bytes, asm.emit_code().as_slice());
 }
+
+// #[test]
+// fn jl() {
+//     let expected_bytes = include_bytes!("jl.out");
+//
+//     let mut asm = Assembler::default();
+//
+//     for reg1 in REGISTERS {
+//         for reg2 in REGISTERS {
+//             asm.assemble_instruction(code!(jl { reg1 }, { reg2 }, { DEADBEEF32 }));
+//         }
+//     }
+//
+//     assert_eq!(expected_bytes, asm.emit_code().as_slice());
+// }
+//
+// #[test]
+// fn jg() {
+//     let expected_bytes = include_bytes!("jg.out");
+//
+//     let mut asm = Assembler::default();
+//
+//     for reg1 in REGISTERS {
+//         for reg2 in REGISTERS {
+//             asm.assemble_instruction(code!(jg { reg1 }, { reg2 }, { DEADBEEF32 }));
+//         }
+//     }
+//
+//     assert_eq!(expected_bytes, asm.emit_code().as_slice());
+// }
 
 #[test]
 fn ret() {

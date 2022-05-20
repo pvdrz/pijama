@@ -1,65 +1,21 @@
 BITS 64
-add rax,rax
-add rcx,rax
-add rdx,rax
-add rbx,rax
-add rsp,rax
-add rbp,rax
-add rsi,rax
-add rdi,rax
-add rax,rcx
-add rcx,rcx
-add rdx,rcx
-add rbx,rcx
-add rsp,rcx
-add rbp,rcx
-add rsi,rcx
-add rdi,rcx
-add rax,rdx
-add rcx,rdx
-add rdx,rdx
-add rbx,rdx
-add rsp,rdx
-add rbp,rdx
-add rsi,rdx
-add rdi,rdx
-add rax,rbx
-add rcx,rbx
-add rdx,rbx
-add rbx,rbx
-add rsp,rbx
-add rbp,rbx
-add rsi,rbx
-add rdi,rbx
-add rax,rsp
-add rcx,rsp
-add rdx,rsp
-add rbx,rsp
-add rsp,rsp
-add rbp,rsp
-add rsi,rsp
-add rdi,rsp
-add rax,rbp
-add rcx,rbp
-add rdx,rbp
-add rbx,rbp
-add rsp,rbp
-add rbp,rbp
-add rsi,rbp
-add rdi,rbp
-add rax,rsi
-add rcx,rsi
-add rdx,rsi
-add rbx,rsi
-add rsp,rsi
-add rbp,rsi
-add rsi,rsi
-add rdi,rsi
-add rax,rdi
-add rcx,rdi
-add rdx,rdi
-add rbx,rdi
-add rsp,rdi
-add rbp,rdi
-add rsi,rdi
-add rdi,rdi
+
+%macro expand 1
+    add rax,%1
+    add rcx,%1
+    add rdx,%1
+    add rbx,%1
+    add rsp,%1
+    add rbp,%1
+    add rsi,%1
+    add rdi,%1
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
