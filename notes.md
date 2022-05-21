@@ -287,7 +287,7 @@ So as far as we know, this is the encoding of the instruction:
 └────────────┴───────────────┴────────────────┘
 ```
 
-Now we can try to reconstruct each part of the instruction the instruction:
+Now we can try to reconstruct each part of the instruction:
 
 The `REX` prefix is composed of three bits `W`, `R`, `B` and is written as a
 single byte with the following binary format `0b0100WR0B`. From the `Opcode`
