@@ -25,10 +25,11 @@ Now we should have a working `a.out` executable.
 
 From here we can start inspecting the `lib.o` file. First we disassemble it:
 ```bash
-$ objdump -D lib.o
+$ objdump -w -M intel -D lib.o
 ```
 
-The `-D` flag is used to disassemble the whole file.
+The `-w` flag tells `objdump` to use a wide output, `-M intel` is used to
+enable the Intel syntax. The `-D` flag is used to disassemble the whole file.
 
 From the output we can see that the assembly code for `start` is stored in a
 `.text` section.
@@ -37,11 +38,12 @@ From the output we can see that the assembly code for `start` is stored in a
 Disassembly of section .text:
 
 0000000000000000 <start>:
-   0:	55                   	push   %rbp
-   1:	48 89 e5             	mov    %rsp,%rbp
-   4:	b8 0a 00 00 00       	mov    $0xa,%eax
-   9:	5d                   	pop    %rbp
+   0:	55                   	push   rbp
+   1:	48 89 e5             	mov    rbp,rsp
+   4:	b8 0a 00 00 00       	mov    eax,0xa
+   9:	5d                   	pop    rbp
    a:	c3                   	ret
+   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
 ```
 
 Even better we even have the actual machine code for `start` on the second
@@ -160,21 +162,21 @@ section:
 Disassembly of section .text:
 
 0000000000000000 <start>:
-   0:   55                      push   %rbp
-   1:   48 89 e5                mov    %rsp,%rbp
-   4:   b8 0a 00 00 00          mov    $0xa,%eax
-   9:   5d                      pop    %rbp
-   a:   c3                      ret
-   b:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+   0:	55                   	push   rbp
+   1:	48 89 e5             	mov    rbp,rsp
+   4:	b8 0a 00 00 00       	mov    eax,0xa
+   9:	5d                   	pop    rbp
+   a:	c3                   	ret
+   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
 
 0000000000000010 <duplicate>:
-  10:   55                      push   %rbp
-  11:   48 89 e5                mov    %rsp,%rbp
-  14:   89 7d fc                mov    %edi,-0x4(%rbp)
-  17:   8b 45 fc                mov    -0x4(%rbp),%eax
-  1a:   c1 e0 01                shl    $0x1,%eax
-  1d:   5d                      pop    %rbp
-  1e:   c3                      ret
+  10:	55                   	push   rbp
+  11:	48 89 e5             	mov    rbp,rsp
+  14:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
+  17:	8b 45 fc             	mov    eax,DWORD PTR [rbp-0x4]
+  1a:	c1 e0 01             	shl    eax,0x1
+  1d:	5d                   	pop    rbp
+  1e:	c3                   	ret
 ```
 
 And here is the symbol table:
@@ -235,8 +237,6 @@ Finally if an instruction has an immediate operand it is encoded in the
 As an example, let's take a look at the `mov` instruction inside the `start`
 function at position `1`:
 ```objdump
-Disassembly of section .text:
-
 0000000000000000 <start>:
    0:	55                   	push   rbp
    1:	48 89 e5             	mov    rbp,rsp
@@ -244,24 +244,13 @@ Disassembly of section .text:
    9:	5d                   	pop    rbp
    a:	c3                   	ret
    b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
-
-0000000000000010 <duplicate>:
-  10:	55                   	push   rbp
-  11:	48 89 e5             	mov    rbp,rsp
-  14:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
-  17:	8b 45 fc             	mov    eax,DWORD PTR [rbp-0x4]
-  1a:	c1 e0 01             	shl    eax,0x1
-  1d:	5d                   	pop    rbp
-  1e:	c3                   	ret
 ```
-We added the `-M intel` flag to be sure we are using the Intel syntax and not
-the AT&T one. This is a major source of headaches because each syntax puts
-source and destination operands in a different order. The machine code is `48
-89 e5` and the instruction is `mov rbp,rsp`.
+The machine code is `48 89 e5` and the instruction is `mov rbp,rsp`.
 
-Sadly, there are more than 30 different `mov` instructions in the Intel manual.
-But based on the fact that both operands are 64-bit registers and that it has
-this `89`. We can assume that the entry in the manual is this one:
+Sadly, there are more than 30 different `mov` instructions in the [Intel
+manual](https://www.felixcloutier.com/x86/mov). But based on the fact that both
+operands are 64-bit registers and that the machine code has an `89` byte
+somewhere. We can assume that the entry in the manual is this one:
 
 ```
 ┌───────────────┬───────────────┬───────┬─────────────┬─────────────────┬───────────────────┐
@@ -291,7 +280,14 @@ The `64-Bit Mode` and `Compat/Leg Mode` columns specify if this instruction is
 valid in 64-bit mode and compatibility mode. We will choose instructions that
 are valid in 64-bit mode and ignore the compatibility mode.
 
-Now we can try to reconstruct the instruction:
+So as far as we know, this is the encoding of the instruction:
+```
+┌────────────┬───────────────┬────────────────┐
+│ REX (0x48) │ Opcode (0x89) │ Mod R/M (0xe5) │
+└────────────┴───────────────┴────────────────┘
+```
+
+Now we can try to reconstruct each part of the instruction the instruction:
 
 The `REX` prefix is composed of three bits `W`, `R`, `B` and is written as a
 single byte with the following binary format `0b0100WR0B`. From the `Opcode`
@@ -319,7 +315,7 @@ To encode the `bp` register as the first operand we set `mod` to `0b11` and
 So the machine code should be `48 89 e5`. Just like what we have in our
 disassembled object file.
 
-As we can see, the x86 instruction set is very complex and writing code to
+As we can see, the `x86` instruction set is very complex and writing code to
 assemble every single instruction in the set would be an herculean task. But,
 given that we are writing our own assembler, we can design our own instruction
 set and encode it as valid `x86-64` instructions.
