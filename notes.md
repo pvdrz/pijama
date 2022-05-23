@@ -1,7 +1,7 @@
 
 # Understand how to compile code to an executable file
 
-Code generation will be restricted to Linux in `x86_64` for now. I need to
+Code generation will be restricted to Linux in `x86-64` for now. I need to
 understand how to compile my own executable, given that I don't have the
 knowledge to do this from scratch, I'm going to piggy back on top of `clang` to
 achieve this. The plan would be to produce a `lib.o` object file containing a
@@ -58,7 +58,7 @@ lib.o: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped
 ```
 
 So, at least on Linux we use the Executable and Linkable Format or ELF.
-Additionally we know that this file is for the `x86_64` platform and that is
+Additionally we know that this file is for the `x86-64` platform and that is
 encoding its binary data using least significant byte endianness, also known as
 LSB or little-endian.
 
@@ -199,7 +199,7 @@ writing an assembler to produce machine code.
 
 ### Understanding the `x86` instruction set
 
-To do this, we need to understand the instruction format for `x86_64`. From the
+To do this, we need to understand the instruction format for `x86`. From the
 Intel and AMD developer manuals for the `x86` architecture we can obtain the
 format of the instructions:
 
@@ -318,7 +318,7 @@ disassembled object file.
 As we can see, the `x86` instruction set is very complex and writing code to
 assemble every single instruction in the set would be an herculean task. But,
 given that we are writing our own assembler, we can design our own instruction
-set and encode it as valid `x86-64` instructions.
+set and encode it as valid `x86` instructions.
 
 One reason to do this instead of just using a strict subset of the actual `x86`
 instruction set is that it should be easier to port this assembler to other
@@ -368,9 +368,9 @@ The easiest operand kind to understand are the immediates `imm32` and `imm64`
 which are just constant signed integer values. We represent them with the `i32`
 and `i64` types in Rust.
 
-Then we have registers or `reg`. The `x86_64` architecture has 16 general
-purpose registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`,
-`rsi`, `rdi` `r8`, ..., `r14` and `r15`, we will only use the first 8 for now.
+Then we have registers or `reg`. The `x86` architecture has 16 general purpose
+registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`, `rsi`,
+`rdi` `r8`, ..., `r14` and `r15`, we will only use the first 8 for now.
 Additionally we have the `rip` register which holds the instruction pointer.
 There are other specific purpose registers that we will discuss if we need
 them.
@@ -381,7 +381,7 @@ later. The base address can be modified by adding an offset to the base
 address, this offset can only be an `imm32` and not an `imm64` (this is a
 limitation of the `x86` instruction set).
 
-Now we are ready to encode those instructions as valid `x86_64` machine code.
+Now we are ready to encode those instructions as valid `x86` machine code.
 These are the instructions that we will use taken from the Intel's manual:
 
 ```
@@ -394,9 +394,9 @@ These are the instructions that we will use taken from the Intel's manual:
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 89 /r     │ MOV r/m64,r64   │ MR    │ Move r64 to m/r64.                                    │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ FF /6             │ PUSH r/m64      │ M     │ Push r/m64.                                           │
+│ 50 + rd           │ PUSH r64        │ M     │ Push r/m64.                                           │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 8F /0             │ POP r/m64       │ M     │ Pop top of stack into m64; increment stack pointer.   │
+│ 58 + rd           │ POP r/m64       │ M     │ Pop top of stack into m64; increment stack pointer.   │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 01 /r     │ ADD r/m64,r64   │ MR    │ Add r64 to r/m64.                                     │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
@@ -448,22 +448,43 @@ encoded as trailing bytes.
 The `rd` value changes from 0 to 7 for the first 8 general purpose registers in
 the order they are written above.
 
-To check that we generated the right machine code we can generate another
-function in our object file which contains the instruction `loadi -1,reg` for
-every `reg` and then dissasemble it with `objdump`:
-```objdump
-Disassembly of section .text:
+To check that we generated the right machine code we will write an `x86`
+assembly program that loads the `0xdeadbeefdeadbeef` integer to every single
+one of the eight general purpose registers and assemble it using the netwide
+assembler. Then we will compare the binary output of our assembler against
+`nasm`'s.
 
-0000000000000020 <loadi_test>:
-  20:   48 b8 ef be ad de 00 00 00 00   movabs rax,0xdeadbeef
-  2a:   48 b9 ef be ad de 00 00 00 00   movabs rcx,0xdeadbeef
-  34:   48 ba ef be ad de 00 00 00 00   movabs rdx,0xdeadbeef
-  3e:   48 bb ef be ad de 00 00 00 00   movabs rbx,0xdeadbeef
-  48:   48 bc ef be ad de 00 00 00 00   movabs rsp,0xdeadbeef
-  52:   48 bd ef be ad de 00 00 00 00   movabs rbp,0xdeadbeef
-  5c:   48 be ef be ad de 00 00 00 00   movabs rsi,0xdeadbeef
-  66:   48 bf ef be ad de 00 00 00 00   movabs rdi,0xdeadbeef
+This is the `x86` program:
+
+```nasm
+BITS 64
+mov rax,-0x2152411021524111
+mov rcx,-0x2152411021524111
+mov rdx,-0x2152411021524111
+mov rbx,-0x2152411021524111
+mov rsp,-0x2152411021524111
+mov rbp,-0x2152411021524111
+mov rsi,-0x2152411021524111
+mov rdi,-0x2152411021524111
 ```
+
+We will store it in the `loadi.asm` file and assemble it in the `loadi.out` file:
+```bash
+$ nasm -o loadi.out loadi.asm
+```
+
+Comparing both outputs is just as easy as calling `assert_eq!`, just to be sure
+here is the `hexdump` of `loadi.out`:
+```bash
+$ hexdump -C loadi.out
+00000000  48 b8 ef be ad de ef be  ad de 48 b9 ef be ad de  |H.........H.....|
+00000010  ef be ad de 48 ba ef be  ad de ef be ad de 48 bb  |....H.........H.|
+00000020  ef be ad de ef be ad de  48 bc ef be ad de ef be  |........H.......|
+00000030  ad de 48 bd ef be ad de  ef be ad de 48 be ef be  |..H.........H...|
+00000040  ad de ef be ad de 48 bf  ef be ad de ef be ad de  |......H.........|
+00000050
+```
+
 Everything looks in order, so we are done with this instruction.
 
 #### Load Address
@@ -532,84 +553,44 @@ some subtle differences but both `index` and `base` use the same encoding as
 
 The `scale` field can only encode 4 possible scales: 1, 2, 4 and 8.
 
-With this information we can build the `rsp` register setting the `index` to
+Using this information we can build the `rsp` register setting the `index` to
 zero, the `base` to the `rsp` register and the `scale` to 1 (we could use any
 scale because it is multiplied by the index which is zero).
 
-With this particular case solved. We are done encoding the load address
-instruction and we are ready to test it by emitting code that calls this
-instruction using all the possible register pairs and dissassembling it:
-```objdump
-Disassembly of section .text:
+After solving this edge case, we can move on to testing the code generation for
+this instruction. We will write a program that takes every pair of registers
+(64 pairs in total) and loads into the second register whatever is stored in
+the address computed by offsetting the contents of the first register by
+`0xdeadbeef` bytes:
+```nasm
+BITS 64
 
-0000000000000070 <loada_test>:
-  70:   48 8b 80 ef be 00 00    mov    rax,QWORD PTR [rax+0xbeef]
-  77:   48 8b 81 ef be 00 00    mov    rax,QWORD PTR [rcx+0xbeef]
-  7e:   48 8b 82 ef be 00 00    mov    rax,QWORD PTR [rdx+0xbeef]
-  85:   48 8b 83 ef be 00 00    mov    rax,QWORD PTR [rbx+0xbeef]
-  8c:   48 8b 84 24 ef be 00 00         mov    rax,QWORD PTR [rsp+0xbeef]
-  94:   48 8b 85 ef be 00 00    mov    rax,QWORD PTR [rbp+0xbeef]
-  9b:   48 8b 86 ef be 00 00    mov    rax,QWORD PTR [rsi+0xbeef]
-  a2:   48 8b 87 ef be 00 00    mov    rax,QWORD PTR [rdi+0xbeef]
-  a9:   48 8b 88 ef be 00 00    mov    rcx,QWORD PTR [rax+0xbeef]
-  b0:   48 8b 89 ef be 00 00    mov    rcx,QWORD PTR [rcx+0xbeef]
-  b7:   48 8b 8a ef be 00 00    mov    rcx,QWORD PTR [rdx+0xbeef]
-  be:   48 8b 8b ef be 00 00    mov    rcx,QWORD PTR [rbx+0xbeef]
-  c5:   48 8b 8c 24 ef be 00 00         mov    rcx,QWORD PTR [rsp+0xbeef]
-  cd:   48 8b 8d ef be 00 00    mov    rcx,QWORD PTR [rbp+0xbeef]
-  d4:   48 8b 8e ef be 00 00    mov    rcx,QWORD PTR [rsi+0xbeef]
-  db:   48 8b 8f ef be 00 00    mov    rcx,QWORD PTR [rdi+0xbeef]
-  e2:   48 8b 90 ef be 00 00    mov    rdx,QWORD PTR [rax+0xbeef]
-  e9:   48 8b 91 ef be 00 00    mov    rdx,QWORD PTR [rcx+0xbeef]
-  f0:   48 8b 92 ef be 00 00    mov    rdx,QWORD PTR [rdx+0xbeef]
-  f7:   48 8b 93 ef be 00 00    mov    rdx,QWORD PTR [rbx+0xbeef]
-  fe:   48 8b 94 24 ef be 00 00         mov    rdx,QWORD PTR [rsp+0xbeef]
- 106:   48 8b 95 ef be 00 00    mov    rdx,QWORD PTR [rbp+0xbeef]
- 10d:   48 8b 96 ef be 00 00    mov    rdx,QWORD PTR [rsi+0xbeef]
- 114:   48 8b 97 ef be 00 00    mov    rdx,QWORD PTR [rdi+0xbeef]
- 11b:   48 8b 98 ef be 00 00    mov    rbx,QWORD PTR [rax+0xbeef]
- 122:   48 8b 99 ef be 00 00    mov    rbx,QWORD PTR [rcx+0xbeef]
- 129:   48 8b 9a ef be 00 00    mov    rbx,QWORD PTR [rdx+0xbeef]
- 130:   48 8b 9b ef be 00 00    mov    rbx,QWORD PTR [rbx+0xbeef]
- 137:   48 8b 9c 24 ef be 00 00         mov    rbx,QWORD PTR [rsp+0xbeef]
- 13f:   48 8b 9d ef be 00 00    mov    rbx,QWORD PTR [rbp+0xbeef]
- 146:   48 8b 9e ef be 00 00    mov    rbx,QWORD PTR [rsi+0xbeef]
- 14d:   48 8b 9f ef be 00 00    mov    rbx,QWORD PTR [rdi+0xbeef]
- 154:   48 8b a0 ef be 00 00    mov    rsp,QWORD PTR [rax+0xbeef]
- 15b:   48 8b a1 ef be 00 00    mov    rsp,QWORD PTR [rcx+0xbeef]
- 162:   48 8b a2 ef be 00 00    mov    rsp,QWORD PTR [rdx+0xbeef]
- 169:   48 8b a3 ef be 00 00    mov    rsp,QWORD PTR [rbx+0xbeef]
- 170:   48 8b a4 24 ef be 00 00         mov    rsp,QWORD PTR [rsp+0xbeef]
- 178:   48 8b a5 ef be 00 00    mov    rsp,QWORD PTR [rbp+0xbeef]
- 17f:   48 8b a6 ef be 00 00    mov    rsp,QWORD PTR [rsi+0xbeef]
- 186:   48 8b a7 ef be 00 00    mov    rsp,QWORD PTR [rdi+0xbeef]
- 18d:   48 8b a8 ef be 00 00    mov    rbp,QWORD PTR [rax+0xbeef]
- 194:   48 8b a9 ef be 00 00    mov    rbp,QWORD PTR [rcx+0xbeef]
- 19b:   48 8b aa ef be 00 00    mov    rbp,QWORD PTR [rdx+0xbeef]
- 1a2:   48 8b ab ef be 00 00    mov    rbp,QWORD PTR [rbx+0xbeef]
- 1a9:   48 8b ac 24 ef be 00 00         mov    rbp,QWORD PTR [rsp+0xbeef]
- 1b1:   48 8b ad ef be 00 00    mov    rbp,QWORD PTR [rbp+0xbeef]
- 1b8:   48 8b ae ef be 00 00    mov    rbp,QWORD PTR [rsi+0xbeef]
- 1bf:   48 8b af ef be 00 00    mov    rbp,QWORD PTR [rdi+0xbeef]
- 1c6:   48 8b b0 ef be 00 00    mov    rsi,QWORD PTR [rax+0xbeef]
- 1cd:   48 8b b1 ef be 00 00    mov    rsi,QWORD PTR [rcx+0xbeef]
- 1d4:   48 8b b2 ef be 00 00    mov    rsi,QWORD PTR [rdx+0xbeef]
- 1db:   48 8b b3 ef be 00 00    mov    rsi,QWORD PTR [rbx+0xbeef]
- 1e2:   48 8b b4 24 ef be 00 00         mov    rsi,QWORD PTR [rsp+0xbeef]
- 1ea:   48 8b b5 ef be 00 00    mov    rsi,QWORD PTR [rbp+0xbeef]
- 1f1:   48 8b b6 ef be 00 00    mov    rsi,QWORD PTR [rsi+0xbeef]
- 1f8:   48 8b b7 ef be 00 00    mov    rsi,QWORD PTR [rdi+0xbeef]
- 1ff:   48 8b b8 ef be 00 00    mov    rdi,QWORD PTR [rax+0xbeef]
- 206:   48 8b b9 ef be 00 00    mov    rdi,QWORD PTR [rcx+0xbeef]
- 20d:   48 8b ba ef be 00 00    mov    rdi,QWORD PTR [rdx+0xbeef]
- 214:   48 8b bb ef be 00 00    mov    rdi,QWORD PTR [rbx+0xbeef]
- 21b:   48 8b bc 24 ef be 00 00         mov    rdi,QWORD PTR [rsp+0xbeef]
- 223:   48 8b bd ef be 00 00    mov    rdi,QWORD PTR [rbp+0xbeef]
- 22a:   48 8b be ef be 00 00    mov    rdi,QWORD PTR [rsi+0xbeef]
- 231:   48 8b bf ef be 00 00    mov    rdi,QWORD PTR [rdi+0xbeef]
+%macro load 2
+    mov %1,[%2-0x21524111]
+%endmacro
+
+%macro expand 1
+    load %1,rax
+    load %1,rcx
+    load %1,rdx
+    load %1,rbx
+    load %1,rsp
+    load %1,rbp
+    load %1,rsi
+    load %1,rdi
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
 ```
 
-We can move to the next instruction now.
+We are using macros instead of writing the 64 pairs by hand to avoid possible errors.
 
 #### Store
 
@@ -623,119 +604,72 @@ encoded in the `r/m` field and that the second operand is encoded in the `reg`
 field. This means that we can reuse most of the code that we did for the load
 address instruction because the arguments are flipped.
 
-We can test this instruction by doing the same we did for the load address
+We can test this instruction by doing the same we did for the `load`
 instruction:
-```objdump
-Disassembly of section .text:
+```nasm
+BITS 64
 
-0000000000000240 <store_test>:
- 240:   48 89 80 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rax
- 247:   48 89 88 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rcx
- 24e:   48 89 90 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rdx
- 255:   48 89 98 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rbx
- 25c:   48 89 a0 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rsp
- 263:   48 89 a8 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rbp
- 26a:   48 89 b0 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rsi
- 271:   48 89 b8 ef be 00 00    mov    QWORD PTR [rax+0xbeef],rdi
- 278:   48 89 81 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rax
- 27f:   48 89 89 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rcx
- 286:   48 89 91 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rdx
- 28d:   48 89 99 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rbx
- 294:   48 89 a1 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rsp
- 29b:   48 89 a9 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rbp
- 2a2:   48 89 b1 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rsi
- 2a9:   48 89 b9 ef be 00 00    mov    QWORD PTR [rcx+0xbeef],rdi
- 2b0:   48 89 82 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rax
- 2b7:   48 89 8a ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rcx
- 2be:   48 89 92 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rdx
- 2c5:   48 89 9a ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rbx
- 2cc:   48 89 a2 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rsp
- 2d3:   48 89 aa ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rbp
- 2da:   48 89 b2 ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rsi
- 2e1:   48 89 ba ef be 00 00    mov    QWORD PTR [rdx+0xbeef],rdi
- 2e8:   48 89 83 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rax
- 2ef:   48 89 8b ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rcx
- 2f6:   48 89 93 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rdx
- 2fd:   48 89 9b ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rbx
- 304:   48 89 a3 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rsp
- 30b:   48 89 ab ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rbp
- 312:   48 89 b3 ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rsi
- 319:   48 89 bb ef be 00 00    mov    QWORD PTR [rbx+0xbeef],rdi
- 320:   48 89 84 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rax
- 328:   48 89 8c 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rcx
- 330:   48 89 94 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rdx
- 338:   48 89 9c 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rbx
- 340:   48 89 a4 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rsp
- 348:   48 89 ac 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rbp
- 350:   48 89 b4 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rsi
- 358:   48 89 bc 24 ef be 00 00         mov    QWORD PTR [rsp+0xbeef],rdi
- 360:   48 89 85 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rax
- 367:   48 89 8d ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rcx
- 36e:   48 89 95 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rdx
- 375:   48 89 9d ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rbx
- 37c:   48 89 a5 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rsp
- 383:   48 89 ad ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rbp
- 38a:   48 89 b5 ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rsi
- 391:   48 89 bd ef be 00 00    mov    QWORD PTR [rbp+0xbeef],rdi
- 398:   48 89 86 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rax
- 39f:   48 89 8e ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rcx
- 3a6:   48 89 96 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rdx
- 3ad:   48 89 9e ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rbx
- 3b4:   48 89 a6 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rsp
- 3bb:   48 89 ae ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rbp
- 3c2:   48 89 b6 ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rsi
- 3c9:   48 89 be ef be 00 00    mov    QWORD PTR [rsi+0xbeef],rdi
- 3d0:   48 89 87 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rax
- 3d7:   48 89 8f ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rcx
- 3de:   48 89 97 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdx
- 3e5:   48 89 9f ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rbx
- 3ec:   48 89 a7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsp
- 3f3:   48 89 af ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rbp
- 3fa:   48 89 b7 ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rsi
- 401:   48 89 bf ef be 00 00    mov    QWORD PTR [rdi+0xbeef],rdi
+%macro store 2
+    mov [%1-0x21524111],%2
+%endmacro
+
+%macro expand 1
+    store %1,rax
+    store %1,rcx
+    store %1,rdx
+    store %1,rbx
+    store %1,rsp
+    store %1,rbp
+    store %1,rsi
+    store %1,rdi
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
 ```
 
 #### Push
 
 The push instruction is the first instruction that we can basically copy from
-the `x86_64` manual. We will use the `PUSH r/m64` instruction which encodes its
-operand in the `r/m` field. The `/6` in the opcode means that the `reg` field
-must be set to `0x6` to encode this instruction.
+the `x86` manual. We will use the `PUSH r64` instruction which encodes its
+operand by adding its `rd` encoding to `0x50`.
 
 We test this in the same as way we did with the `loadi` instruction:
-```objdump
-Disassembly of section .text:
-
-0000000000000410 <push_test>:
- 410:   ff f0                   push   rax
- 412:   ff f1                   push   rcx
- 414:   ff f2                   push   rdx
- 416:   ff f3                   push   rbx
- 418:   ff f4                   push   rsp
- 41a:   ff f5                   push   rbp
- 41c:   ff f6                   push   rsi
- 41e:   ff f7                   push   rdi
+```nasm
+BITS 64
+push rax
+push rcx
+push rdx
+push rbx
+push rsp
+push rbp
+push rsi
+push rdi
 ```
 
 #### Pop
 
 We can also copy the pop instruction from the manual. The actual instruction is
-`POP r/m64`, the operand is encoded in the `r/m` field. Analogous to the push
-instruction, the `/0` in the opcode means that the `reg` field is set to zero.
+`POP r64`, this instruction is encoded in a similar way to the `PUSH r64`
+instruction but using `0x58` instead.
 
-We test this instruction in the same way as before:
+We test this instruction in the same way the `push` instruction:
 ```objdump
-Disassembly of section .text:
-
-0000000000000420 <pop_test>:
- 420:   8f c0                   pop    rax
- 422:   8f c1                   pop    rcx
- 424:   8f c2                   pop    rdx
- 426:   8f c3                   pop    rbx
- 428:   8f c4                   pop    rsp
- 42a:   8f c5                   pop    rbp
- 42c:   8f c6                   pop    rsi
- 42e:   8f c7                   pop    rdi
+BITS 64
+pop rax
+pop rcx
+pop rdx
+pop rbx
+pop rsp
+pop rbp
+pop rsi
+pop rdi
 ```
 
 #### Add
@@ -745,72 +679,30 @@ operand in the `r/m` field and the second one in the `reg` field. We have to be
 careful with the syntax order but other than that, emitting this instruction
 should be straightforward.
 
-We test this instruction in the same way as we did with the load address
-instruction:
+We test this instruction in the same way as we did with the `load` instruction:
 
-```objdump
-Disassembly of section .text:
+```nasm
+BITS 64
 
-0000000000000430 <add_test>:
- 430:   48 01 c0                add    rax,rax
- 433:   48 01 c1                add    rcx,rax
- 436:   48 01 c2                add    rdx,rax
- 439:   48 01 c3                add    rbx,rax
- 43c:   48 01 c4                add    rsp,rax
- 43f:   48 01 c5                add    rbp,rax
- 442:   48 01 c6                add    rsi,rax
- 445:   48 01 c7                add    rdi,rax
- 448:   48 01 c8                add    rax,rcx
- 44b:   48 01 c9                add    rcx,rcx
- 44e:   48 01 ca                add    rdx,rcx
- 451:   48 01 cb                add    rbx,rcx
- 454:   48 01 cc                add    rsp,rcx
- 457:   48 01 cd                add    rbp,rcx
- 45a:   48 01 ce                add    rsi,rcx
- 45d:   48 01 cf                add    rdi,rcx
- 460:   48 01 d0                add    rax,rdx
- 463:   48 01 d1                add    rcx,rdx
- 466:   48 01 d2                add    rdx,rdx
- 469:   48 01 d3                add    rbx,rdx
- 46c:   48 01 d4                add    rsp,rdx
- 46f:   48 01 d5                add    rbp,rdx
- 472:   48 01 d6                add    rsi,rdx
- 475:   48 01 d7                add    rdi,rdx
- 478:   48 01 d8                add    rax,rbx
- 47b:   48 01 d9                add    rcx,rbx
- 47e:   48 01 da                add    rdx,rbx
- 481:   48 01 db                add    rbx,rbx
- 484:   48 01 dc                add    rsp,rbx
- 487:   48 01 dd                add    rbp,rbx
- 48a:   48 01 de                add    rsi,rbx
- 48d:   48 01 df                add    rdi,rbx
- 490:   48 01 e0                add    rax,rsp
- 493:   48 01 e1                add    rcx,rsp
- 496:   48 01 e2                add    rdx,rsp
- 499:   48 01 e3                add    rbx,rsp
- 49c:   48 01 e4                add    rsp,rsp
- 49f:   48 01 e5                add    rbp,rsp
- 4a2:   48 01 e6                add    rsi,rsp
- 4a5:   48 01 e7                add    rdi,rsp
- 4a8:   48 01 e8                add    rax,rbp
- 4ab:   48 01 e9                add    rcx,rbp
- 4ae:   48 01 ea                add    rdx,rbp
- 4b1:   48 01 eb                add    rbx,rbp
- 4b4:   48 01 ec                add    rsp,rbp
- 4b7:   48 01 ed                add    rbp,rbp
- 4ba:   48 01 ee                add    rsi,rbp
- 4bd:   48 01 ef                add    rdi,rbp
- 4c0:   48 01 f0                add    rax,rsi
- 4c3:   48 01 f1                add    rcx,rsi
- 4c6:   48 01 f2                add    rdx,rsi
- 4c9:   48 01 f3                add    rbx,rsi
- 4cc:   48 01 f4                add    rsp,rsi
- 4cf:   48 01 f5                add    rbp,rsi
- 4d2:   48 01 f6                add    rsi,rsi
- 4d5:   48 01 f7                add    rdi,rsi
- 4d8:   48 01 f8                add    rax,rdi
- 4db:   48 01 f9                add    rcx,rdi
- 4de:   48 01 fa                add    rdx,rdi
+%macro expand 1
+    add rax,%1
+    add rcx,%1
+    add rdx,%1
+    add rbx,%1
+    add rsp,%1
+    add rbp,%1
+    add rsi,%1
+    add rdi,%1
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
  ```
 
 #### Add Immediate
@@ -822,24 +714,22 @@ encoded in the `r/m` field and the second operand is encoded as bytes after the
 `mod r/m` byte.
 
 However, our `addi` instruction has a particular case that can be written using
-fewer bytes thanks to the `ADD RAX,imm32` instruction (yes, `x86_64` has a
+fewer bytes thanks to the `ADD RAX,imm32` instruction (yes, `x86` has a
 specific "add to `rax`" instruction).
 
-We test this instruction in the same way as we did with the load immediate
+We test this instruction in the same way as we did with the `loadi`
 instruction:
 
 ```objdump
-Disassembly of section .text:
-
-0000000000000030 <addi_test>:
-  30:   48 05 ef be ad de       add    rax,0xffffffffdeadbeef
-  36:   48 81 c1 ef be ad de    add    rcx,0xffffffffdeadbeef
-  3d:   48 81 c2 ef be ad de    add    rdx,0xffffffffdeadbeef
-  44:   48 81 c3 ef be ad de    add    rbx,0xffffffffdeadbeef
-  4b:   48 81 c4 ef be ad de    add    rsp,0xffffffffdeadbeef
-  52:   48 81 c5 ef be ad de    add    rbp,0xffffffffdeadbeef
-  59:   48 81 c6 ef be ad de    add    rsi,0xffffffffdeadbeef
-  60:   48 81 c7 ef be ad de    add    rdi,0xffffffffdeadbeef
+BITS 64
+add rax,-0x21524111
+add rcx,-0x21524111
+add rdx,-0x21524111
+add rbx,-0x21524111
+add rsp,-0x21524111
+add rbp,-0x21524111
+add rsi,-0x21524111
+add rdi,-0x21524111
 ```
 
 #### Jump
@@ -849,18 +739,16 @@ know that we must set the `rem` field to `0x4`. The operand is encoded in the
 `r/m` field.
 
 We test this instruction in the same way as the other single operand instructions:
-```objdump
-Disassembly of section .text:
-
-00000000000004f0 <jmp_test>:
- 4f0:   ff e0                   jmp    rax
- 4f2:   ff e1                   jmp    rcx
- 4f4:   ff e2                   jmp    rdx
- 4f6:   ff e3                   jmp    rbx
- 4f8:   ff e4                   jmp    rsp
- 4fa:   ff e5                   jmp    rbp
- 4fc:   ff e6                   jmp    rsi
- 4fe:   ff e7                   jmp    rdi
+```nasm
+BITS 64
+jmp rax
+jmp rcx
+jmp rdx
+jmp rbx
+jmp rsp
+jmp rbp
+jmp rsi
+jmp rdi
 ```
 
 #### Conditional Jumps
@@ -872,8 +760,8 @@ current location (in other words, the position of the instruction pointer after
 reading this instruction).
 
 This is an interesting instruction because we cannot encode it as a single
-`x86_64` instruction. Conditional jumps in `x86` are done by first comparing
-two operands. The result of this comparison is stored in the special `RFLAGS`
+`x86` instruction. Conditional jumps in `x86` are done by first comparing two
+operands. The result of this comparison is stored in the special `RFLAGS`
 register. The actual conditional jump instruction uses the `RFLAGS` register to
 decide to jump or not. This `RFLAGS` register is a sequence of status flags
 indicating the result of the comparison.
@@ -890,45 +778,38 @@ instruction which encodes the operand by appending it after the `0x84` byte.
 In other words, we will emit the following code to encode our `jz imm32,reg`:
 
 ```nasm
-cmp  reg2,reg1 ; compare `reg1` to `reg2`.
 je   imm32   ; if `reg1 == reg2`, jump to `imm32`.
 ```
 
-We test this instruction in the same way as the others:
+We test this instruction in the same way as the other two-operand instructions:
 ```objdump
-Disassembly of section .text:
+BITS 64
 
-0000000000000500 <jz_test>:
- 500:   48 83 f8 00             cmp    rax,0x0
- 504:   0f 84 ef be 00 00       je     c3f9 <jz_test+0xbef9>
- 50a:   48 83 f9 00             cmp    rcx,0x0
- 50e:   0f 84 ef be 00 00       je     c403 <jz_test+0xbf03>
- 514:   48 83 fa 00             cmp    rdx,0x0
- 518:   0f 84 ef be 00 00       je     c40d <jz_test+0xbf0d>
- 51e:   48 83 fb 00             cmp    rbx,0x0
- 522:   0f 84 ef be 00 00       je     c417 <jz_test+0xbf17>
- 528:   48 83 fc 00             cmp    rsp,0x0
- 52c:   0f 84 ef be 00 00       je     c421 <jz_test+0xbf21>
- 532:   48 83 fd 00             cmp    rbp,0x0
- 536:   0f 84 ef be 00 00       je     c42b <jz_test+0xbf2b>
- 53c:   48 83 fe 00             cmp    rsi,0x0
- 540:   0f 84 ef be 00 00       je     c435 <jz_test+0xbf35>
- 546:   48 83 ff 00             cmp    rdi,0x0
- 54a:   0f 84 ef be 00 00       je     c43f <jz_test+0xbf3f>
+%macro jump_eq 2
+    cmp %2,%1
+    je  -0x21524111
+%endmacro
+
+%macro expand 1
+    jump_eq %1,rax
+    jump_eq %1,rcx
+    jump_eq %1,rdx
+    jump_eq %1,rbx
+    jump_eq %1,rsp
+    jump_eq %1,rbp
+    jump_eq %1,rsi
+    jump_eq %1,rdi
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
 ```
-
-from the operand of the disassembled `je` instructions it is not clear that we
-are emitting the right bytes because `objdump` automatically tries to compute
-the absolute position of the jump. But we can check that every value is correct
-by doing a bit of arithmetic.
-
-The first instruction we emited is `jz rax,0xbeef`. For this instruction we
-have that the operand of `je` is `<jz_test+0xbef9>`, this reads as "the
-position obtained from adding `0xbef9` to the start of `jz_test`". We know that
-`jz_test` starts at `0x500` and that the current position is `0x50a` (the
-position immediately after the `je` instruction). In other words the, current
-position is `<jz_test+0x0a>`. Which means that the relative offset between the
-two positions is `0xbef9 - 0x0a` which is exactly `0xbeef`.
 
 The other two instructions are encoded in a similar way but using the `JL
 rel32` and `JG rel32` instructions instead of `JE rel32`.
@@ -938,12 +819,10 @@ rel32` and `JG rel32` instructions instead of `JE rel32`.
 After all this madness we go back to a simple instruction. We will use the near
 return instruction `RET` which takes no operands.
 
-Testing it is really simple:
-```objdump
-Disassembly of section .text:
-
-0000000000000550 <ret_test>:
- 550:   c3                      ret
+Testing it is really simple because we only have to emit one instruction:
+```nasm
+BITS 64
+ret
 ```
 
 #### Call
@@ -951,81 +830,27 @@ Disassembly of section .text:
 For this last instruction we will use the near call instruction `CALL r/m64`
 which encodes its operand in the `rm` field.
 
-We test it in the same way as the other instructions:
-```objdump
-Disassembly of section .text:
-
-0000000000000560 <call_test>:
- 560:   ff d0                   call   rax
- 562:   ff d1                   call   rcx
- 564:   ff d2                   call   rdx
- 566:   ff d3                   call   rbx
- 568:   ff d4                   call   rsp
- 56a:   ff d5                   call   rbp
- 56c:   ff d6                   call   rsi
- 56e:   ff d7                   call   rdi
+We test it in the same way as the other single-opreand instructions:
+```nasm
+BITS 64
+call rax
+call rcx
+call rdx
+call rbx
+call rsp
+call rbp
+call rsi
+call rdi
 ```
 
-And we are done with or tiny assembler!
-
-### Testing our assembler
-
-We will need to modify our assembler in the future to add new instructions or
-to extend the instructions we already have. To be sure that we won't break the
-assembler at least for the instructions we already have we will add some tests.
-
-These tests will compare our assembled instructions to actual `x86_64`
-instructions assembled by the Netwide Assembler or `nasm`, an `x86` assembler.
-
-First we need to write `x86` assembly files and assemble them. To assemble the
-`code.asm` file, we run:
-```bash
-$ nasm code.asm -o code.out
-```
-
-This generates a `code.out` binary file with the assembled instructions. We can
-write a `build.rs` script to assemble these `*.asm` files everytime we change
-them so we don't have to invoke `nasm` manually every single time we change
-something.
-
-After writing the tests for each instruction, I found some differences for
-three of them: `push`, `pop` and `jz`.
-
-The `push` and `pop` instructions are assembled by `nasm` using less bytes.
-Using less bytes means we will have smaller binaries so it is worth to take a
-look.
-
-We used the `PUSH r/m64` and `POP r/m64` instructions but after checking the
-`nasm` output and reading the `x86` manuals, we also have the `PUSH r64` and
-`POP r64` instructions which only take registers as operands and thus have a
-shorter and simpler encoding. Their opcodes are `50 +rd` and `58 +rd`
-respectively, meaning that we can encode both instructions in a single byte by
-taking `0x50` or `0x58` and adding to them the `rd` encoding of the register
-operand.
-
-The `jz` case is bit more interesting. The differences are in the emitted code
-for the `je` instruction, specifically in the operand bytes. It seems that the
-manuals say that the operand is relative to the position of the instruction
-pointer but is the assembler responsability to compute the absolute position
-and then use the absolute position as the operand.
-
-I reached this conclusion because the difference between the outputs is always
-on the least significant byte of the operand and the differences for each
-instruction are 10, 20, 30, 40 and so on. The total length of the emitted code
-is exactly 10 bytes: 4 bytes for the `cmp` instruction and `6` bytes for the
-`je` instruction. Meaning that the difference between the operand bytes in the
-two outputs is exactly the position of the instruction pointer.
-
-Fortunately for us, the position of the instruction pointer is exactly the
-length of the buffer we're using to emit the code, so we can easily add it to
-the operand.
+And we are done with our assembler!
 
 ### Emitting functions
 
-Now that we can emit valid `x86_64` machine code we should be able to write our
+Now that we can emit valid `x86` machine code, we should be able to write our
 own functions inside it. To be able to do this we need to understand how
 function calls and returns work. In other words, we need to understand the
-calling convention. At least on Linux for `x86_64` machines, the calling
+calling convention. At least on Linux for `x86` machines, the calling
 convention is defined by the System V ABI (this specification also defines ELF,
 among other things).
 

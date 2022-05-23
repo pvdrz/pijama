@@ -140,15 +140,15 @@ impl Assembler {
         let opcode = 0x8b;
         let mod_rm = ModRmBuilder::new()
             .displacement()
-            .reg(src.base as u8)
-            .rm(dst as u8)
+            .reg(dst as u8)
+            .rm(src.base as u8)
             .build();
 
-        if let Register::Sp = dst {
+        if let Register::Sp = src.base {
             let sib = SibBuilder::new()
                 .scale(Scale::One)
-                .index(dst)
-                .base(dst)
+                .index(src.base)
+                .base(src.base)
                 .build();
 
             self.buf
@@ -337,7 +337,7 @@ macro_rules! code {
             dst: $crate::reg!($($reg)+),
         };
     };
-    (loada {$($addr:tt)+}+{$imm32:expr},{$($reg:tt)+}) => {
+    (load {$($addr:tt)+}+{$imm32:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::LoadAddr {
             src: $crate::asm::Address {
                 base: $crate::reg!($($addr)+),

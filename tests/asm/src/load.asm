@@ -1,7 +1,7 @@
 BITS 64
 
 %macro load 2
-    mov %1,[%2-0x21524111]
+    mov %2,[%1-0x21524111]
 %endmacro
 
 %macro expand 1
