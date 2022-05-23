@@ -468,7 +468,8 @@ mov rsi,-0x2152411021524111
 mov rdi,-0x2152411021524111
 ```
 
-We will store it in the `loadi.asm` file and assemble it in the `loadi.out` file:
+We will store it in the `loadi.asm` file and assemble it in the `loadi.out`
+file:
 ```bash
 $ nasm -o loadi.out loadi.asm
 ```
@@ -660,7 +661,7 @@ We can also copy the pop instruction from the manual. The actual instruction is
 instruction but using `0x58` instead.
 
 We test this instruction in the same way the `push` instruction:
-```objdump
+```nasm
 BITS 64
 pop rax
 pop rcx
@@ -720,7 +721,7 @@ specific "add to `rax`" instruction).
 We test this instruction in the same way as we did with the `loadi`
 instruction:
 
-```objdump
+```nasm
 BITS 64
 add rax,-0x21524111
 add rcx,-0x21524111
@@ -782,7 +783,7 @@ je   imm32   ; if `reg1 == reg2`, jump to `imm32`.
 ```
 
 We test this instruction in the same way as the other two-operand instructions:
-```objdump
+```nasm
 BITS 64
 
 %macro jump_eq 2
