@@ -3,6 +3,8 @@ use pijama::{
     code,
 };
 
+use std::fmt::Write;
+
 const REGISTERS: [Register; 8] = [
     Register::Ax,
     Register::Cx,
@@ -17,6 +19,83 @@ const REGISTERS: [Register; 8] = [
 const DEADBEEF32: i32 = 0xdeadbeefu32 as i32;
 const DEADBEEF64: i64 = 0xdeadbeefdeadbeefu64 as i64;
 
+fn compare(expected: &[u8], found: &[u8]) {
+    if expected != found {
+        let len = expected.len().max(found.len());
+
+        let mut lines1 = Vec::<String>::default();
+        let mut lines2 = Vec::<String>::default();
+
+        for i in 0..len {
+            if i % 8 == 0 {
+                if i % 16 == 0 {
+                    lines1.last_mut().map(|s| {
+                        *s = format!("{:08x} {s}", i - 16);
+                        s.push('\n')
+                    });
+                    lines2.last_mut().map(|s| {
+                        *s = format!("         {s}");
+                        s.push('\n')
+                    });
+
+                    lines1.push(String::default());
+                    lines2.push(String::default());
+                } else {
+                    lines1.last_mut().map(|s| s.push(' '));
+                    lines2.last_mut().map(|s| s.push(' '));
+                }
+            }
+
+            let buf1 = lines1.last_mut().unwrap();
+            let buf2 = lines2.last_mut().unwrap();
+
+            // Panic: writing to a string cannot fail.
+            (|| match (expected.get(i), found.get(i)) {
+                (None, None) => unreachable!(),
+                (None, Some(found_byte)) => {
+                    write!(buf1, "   ")?;
+                    write!(buf2, " {:x}", found_byte)
+                }
+                (Some(expected_byte), None) => {
+                    write!(buf1, " {:x}", expected_byte)?;
+                    write!(buf2, "   ")
+                }
+                (Some(expected_byte), Some(found_byte)) => {
+                    if expected_byte == found_byte {
+                        write!(buf1, " {:x}", expected_byte)?;
+                        write!(buf2, "   ")
+                    } else {
+                        write!(buf1, " {:x}", expected_byte)?;
+                        write!(buf2, " {:x}", found_byte)
+                    }
+                }
+            })()
+            .unwrap()
+        }
+
+        let res = len % 16;
+
+        if res != 0 {
+            lines1.last_mut().map(|s| {
+                *s = format!("{:08x} {s}", len - res);
+                s.push('\n')
+            });
+            lines2.last_mut().map(|s| {
+                *s = format!("         {s}");
+                s.push('\n')
+            });
+        }
+
+        let output = lines1
+            .into_iter()
+            .zip(lines2.into_iter())
+            .flat_map(|(x, y)| [x, y])
+            .collect::<String>();
+
+        panic!("output mismatch:\n{output}")
+    }
+}
+
 #[test]
 fn loadi() {
     let expected_bytes = include_bytes!("loadi.out");
@@ -27,7 +106,7 @@ fn loadi() {
         asm.assemble_instruction(code!(loadi { DEADBEEF64 }, { dst }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -38,11 +117,11 @@ fn load() {
 
     for base in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(code!(loada { base } + { DEADBEEF32 }, { dst }));
+            asm.assemble_instruction(code!(load { base } + { DEADBEEF32 }, { dst }));
         }
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -57,7 +136,7 @@ fn store() {
         }
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -70,7 +149,7 @@ fn push() {
         asm.assemble_instruction(code!(push { reg }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -83,7 +162,7 @@ fn pop() {
         asm.assemble_instruction(code!(pop { reg }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -98,7 +177,7 @@ fn add() {
         }
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -111,7 +190,7 @@ fn addi() {
         asm.assemble_instruction(code!(addi { DEADBEEF32 }, { dst }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -124,7 +203,7 @@ fn jmp() {
         asm.assemble_instruction(code!(jmp { reg }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -139,7 +218,7 @@ fn je() {
         }
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 // #[test]
@@ -154,7 +233,7 @@ fn je() {
 //         }
 //     }
 //
-//     assert_eq!(expected_bytes, asm.emit_code().as_slice());
+//     compare(expected_bytes, asm.emit_code().as_slice());
 // }
 //
 // #[test]
@@ -169,7 +248,7 @@ fn je() {
 //         }
 //     }
 //
-//     assert_eq!(expected_bytes, asm.emit_code().as_slice());
+//     compare(expected_bytes, asm.emit_code().as_slice());
 // }
 
 #[test]
@@ -180,7 +259,7 @@ fn ret() {
 
     asm.assemble_instruction(code!(ret));
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
 
 #[test]
@@ -193,5 +272,5 @@ fn call() {
         asm.assemble_instruction(code!(call { reg }));
     }
 
-    assert_eq!(expected_bytes, asm.emit_code().as_slice());
+    compare(expected_bytes, asm.emit_code().as_slice());
 }
