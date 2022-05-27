@@ -29,20 +29,24 @@ fn compare(expected: &[u8], found: &[u8]) {
         for i in 0..len {
             if i % 8 == 0 {
                 if i % 16 == 0 {
-                    lines1.last_mut().map(|s| {
+                    if let Some(s) = lines1.last_mut() {
                         *s = format!("{:08x} {s}", i - 16);
                         s.push('\n')
-                    });
-                    lines2.last_mut().map(|s| {
+                    }
+                    if let Some(s) = lines2.last_mut() {
                         *s = format!("         {s}");
                         s.push('\n')
-                    });
+                    }
 
                     lines1.push(String::default());
                     lines2.push(String::default());
                 } else {
-                    lines1.last_mut().map(|s| s.push(' '));
-                    lines2.last_mut().map(|s| s.push(' '));
+                    if let Some(s) = lines1.last_mut() {
+                        s.push(' ')
+                    }
+                    if let Some(s) = lines2.last_mut() {
+                        s.push(' ')
+                    }
                 }
             }
 
@@ -76,14 +80,14 @@ fn compare(expected: &[u8], found: &[u8]) {
         let res = len % 16;
 
         if res != 0 {
-            lines1.last_mut().map(|s| {
+            if let Some(s) = lines1.last_mut() {
                 *s = format!("{:08x} {s}", len - res);
                 s.push('\n')
-            });
-            lines2.last_mut().map(|s| {
+            }
+            if let Some(s) = lines2.last_mut() {
                 *s = format!("         {s}");
                 s.push('\n')
-            });
+            }
         }
 
         let output = lines1
