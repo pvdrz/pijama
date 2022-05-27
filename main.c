@@ -1,11 +1,12 @@
-#include<stdio.h>
+#include <stdio.h>
 
-extern int start();
-extern int duplicate(int);
+extern long start();
+extern long duplicate(long);
 
 int main() {
-    int value = start();
-    value = duplicate(value);
-    printf("%d\n", value);
-    return 0;
+  long value = start();
+  value = duplicate(value);
+  printf("%ld\n", value);
+
+  return 0;
 }
