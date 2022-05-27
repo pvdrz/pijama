@@ -933,3 +933,75 @@ We first set the `rax` register to zero to be on the safe side and then add
 
 If we link `main.c` against our object file and run it, we should get the same
 output as with the `lib.c` library.
+
+### Playing with Control Flow
+
+We can use this `duplicate` function to test our different jump instructions
+too. We could try to come up with an alternative implementation of `duplicate`
+like this one:
+```c
+long duplicate(long value) {
+    long output = 0;
+    long i = 0;
+
+    while i < value {
+        output += 2;
+        i += 1;
+    }
+
+    return output;
+}
+```
+
+which should be equivalent to something like
+```asm
+    loadi 0x0,rax    ; output = 0
+    loadi 0x0,rdx    ; i = 0
+
+    jl rdx,rdi,<ADD> ; if i < output jump to the first add
+    ret              ; else return output
+
+    addi 0x2,rax     ; output += 2
+    addi 0x1,rdx     ; output += 1
+    jmp  <CMP>       ; jump back to the comparison
+```
+
+we need to figure out what are the values of `<ADD>` and `<CMP>`, to do this we
+can set both of them to zero, assemble our code and then disassemble it with
+`objdump`:
+```objdump
+0000000000000010 <duplicate>:
+  10:   48 b8 00 00 00 00 00 00 00 00   movabs rax,0x0
+  1a:   48 ba 00 00 00 00 00 00 00 00   movabs rdx,0x0
+  24:   48 39 fa                cmp    rdx,rdi
+  27:   0f 8c e3 ff ff ff       jl     10 <duplicate>
+  2d:   c3                      ret
+  2e:   48 05 02 00 00 00       add    rax,0x2
+  34:   48 81 c2 01 00 00 00    add    rdx,0x1
+  3b:   e9 d0 ff ff ff          jmp    10 <duplicate>
+```
+
+From here we can appreciate that jump operands are taken by the assembler as
+relative to the beginning of the symbol: `jmp 0x0` is encoded as a jump to
+`0x10` because `duplicate` starts at `0x10`. This is just a convention in
+reality because we know that jumps are always relative to the instruction
+pointer.
+
+We can also see that the `jl` instruction is at `0x27` (or `0x17` relative to
+`duplicate`) and that the first `add` is at `0x2e` (or `0x1e` relative to
+`duplicate`). With this information we can finally write our `duplicate`
+function as:
+```asm
+    loadi 0x0,rax   ; output = 0
+    loadi 0x0,rdx   ; i = 0
+
+    jl rdx,rdi,0x1e ; if i < output jump to the first add
+    ret             ; else return output
+
+    addi 0x2,rax    ; output += 2
+    addi 0x1,rdx    ; output += 1
+    jmp  0x17       ; jump back to the comparison
+```
+
+We test this by compiling and linking our object file and `main.c` and then
+running `a.out`, we should get the same output as before.
