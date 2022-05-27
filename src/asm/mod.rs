@@ -95,24 +95,20 @@ pub struct Instruction {
     pub kind: InstructionKind,
 }
 
-struct RexPrefix;
+const fn rex(w_bit: bool, r_bit: bool, b_bit: bool) -> u8 {
+    let mut prefix = 0b01000000;
 
-impl RexPrefix {
-    const fn new(w_bit: bool, r_bit: bool, b_bit: bool) -> u8 {
-        let mut prefix = 0b01000000;
-
-        if w_bit {
-            prefix |= 0b1000;
-        }
-        if r_bit {
-            prefix |= 0b100;
-        }
-        if b_bit {
-            prefix |= 0b1;
-        }
-
-        prefix
+    if w_bit {
+        prefix |= 0b1000;
     }
+    if r_bit {
+        prefix |= 0b100;
+    }
+    if b_bit {
+        prefix |= 0b1;
+    }
+
+    prefix
 }
 
 struct Patch {
@@ -181,7 +177,7 @@ impl Assembler {
     }
 
     fn assemble_load_imm(&mut self, src: i64, dst: Register) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
         let opcode = 0xb8 + dst as u8;
         let io = src.to_le_bytes();
 
@@ -190,7 +186,7 @@ impl Assembler {
     }
 
     fn assemble_load_addr(&mut self, src: Address<Imm32>, dst: Register) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
         let opcode = 0x8b;
         let mod_rm = ModRmBuilder::new()
             .displacement()
@@ -215,7 +211,7 @@ impl Assembler {
     }
 
     fn assemble_store(&mut self, src: Register, dst: Address<Imm32>) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
         let opcode = 0x89;
         let mod_rm = ModRmBuilder::new()
             .displacement()
@@ -252,7 +248,7 @@ impl Assembler {
     }
 
     fn assemble_add(&mut self, src: Register, dst: Register) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
         let opcode = 0x01;
         let mod_rm = ModRmBuilder::new()
             .direct()
@@ -264,7 +260,7 @@ impl Assembler {
     }
 
     fn assemble_add_imm(&mut self, src: i32, dst: Register) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
 
         if let Register::Ax = dst {
             let opcode = 0x05;
@@ -305,7 +301,7 @@ impl Assembler {
         reg2: Register,
         target: Location,
     ) {
-        let rex_prefix = RexPrefix::new(true, false, false);
+        let rex_prefix = rex(true, false, false);
         let opcode = 0x39;
         let mod_rm = ModRmBuilder::new()
             .direct()
