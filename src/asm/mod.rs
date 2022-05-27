@@ -22,12 +22,6 @@ pub enum Register {
     Di = 7,
 }
 
-impl Register {
-    const fn as_rd(self, opcode: u8) -> u8 {
-        opcode + self as u8
-    }
-}
-
 pub struct Address<I> {
     pub base: Register,
     pub offset: I,
@@ -123,7 +117,7 @@ impl RexPrefix {
 
 struct Patch {
     label: Label,
-    location: usize,
+    start: usize,
 }
 
 #[derive(Default)]
@@ -134,21 +128,30 @@ pub struct Assembler {
 }
 
 impl Assembler {
-    pub fn new_label(&mut self) -> Label {
+    /// Creates a new label, different from all the other labels created by this [`Assembler`].
+    pub fn add_label(&mut self) -> Label {
         let label = Label(self.label_locations.len());
 
-        self.label_locations.push(0);
+        self.label_locations.push(usize::MAX);
 
         label
     }
 
-    pub fn add_patch(&mut self, label: Label) {
+    /// Adds a new patch in the current location of the instruction pointer for a [`Label`]. This
+    /// means that an [`Imm32`] with the location of the label will be written at the current
+    /// location of the instruction pointer when calling [`Assembler::emit_code`].
+    ///
+    /// This will overwrite the `4` bytes following the current instruction pointer location.
+    fn add_patch(&mut self, label: Label) {
         self.patches.push(Patch {
             label,
-            location: self.buf.len(),
+            start: self.buf.len(),
         })
     }
 
+    /// Assembles an instruction.
+    ///
+    /// If the instruction has a label, the previous location of the label will be overwritten.
     pub fn assemble_instruction(&mut self, instruction: Instruction) {
         if let Some(label) = instruction.label {
             self.label_locations[label.0] = self.buf.len();
@@ -179,7 +182,7 @@ impl Assembler {
 
     fn assemble_load_imm(&mut self, src: i64, dst: Register) {
         let rex_prefix = RexPrefix::new(true, false, false);
-        let opcode = dst.as_rd(0xb8);
+        let opcode = 0xb8 + dst as u8;
         let io = src.to_le_bytes();
 
         self.buf.extend_from_slice(&[rex_prefix, opcode]);
@@ -347,10 +350,16 @@ impl Assembler {
     }
 
     pub fn emit_code(mut self) -> Vec<u8> {
-        for Patch { label, location } in self.patches {
-            let label_location = self.label_locations[label.0 as usize];
-            self.buf[location..location + 4]
-                .copy_from_slice(&(label_location as i32 - location as i32 - 4).to_le_bytes());
+        for patch in self.patches {
+            // The value to be patched is an `i32`.
+            let patch_end = patch.start + std::mem::size_of::<i32>();
+
+            let mut label_location = self.label_locations[patch.label.0 as usize] as i32;
+            // The label location must be written relative to the end of the instruction which
+            // matches the end of the patch.
+            label_location -= patch_end as i32;
+
+            self.buf[patch.start..patch_end].copy_from_slice(&label_location.to_le_bytes());
         }
 
         self.buf

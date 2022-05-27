@@ -22,8 +22,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
     add_function(&mut obj, section, b"start", &asm.emit_code());
 
     let mut asm = Assembler::default();
-    let add = asm.new_label();
-    let cmp = asm.new_label();
+    let add = asm.add_label();
+    let cmp = asm.add_label();
 
     asm.assemble_instruction(code!(loadi {0x0}, {rax}));
     asm.assemble_instruction(code!(loadi {0x0}, {rdx}));
