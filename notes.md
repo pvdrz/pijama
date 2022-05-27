@@ -1005,3 +1005,37 @@ jmp  0x17       ; jump back to the comparison
 
 We test this by compiling and linking our object file and `main.c` and then
 running `a.out`, we should get the same output as before.
+
+### Labels
+
+This two-step process of first emitting code with placeholders for the jump
+locations and then replacing them by the correct values is a bit tedious and
+unreliable when done by hand. We need to remember which jumps should be updated
+if we add, remove or change a instruction to our code. We can abstract it with
+the concept of labels.
+
+A label is an identifier used to reference a particular instruction, meaning
+that we can use them instead of writing numeric positions:
+```asm
+      loadi 0x0,rax   ; output = 0
+      loadi 0x0,rdx   ; i = 0
+
+.cmp: jl rdx,rdi,.add ; if i < output jump to the first add
+      ret             ; else return output
+
+.add: addi 0x2,rax    ; output += 2
+      addi 0x1,rdx    ; output += 1
+      jmp  .cmp       ; jump back to the comparison
+```
+
+This means that our assembler should be able to know the location of an
+instruction which has a label, even if the labels are defined "after" being
+used. For example, the `.add` label is defined in the first `addi` instruction
+which appears later than its first use in the `jl` instruction.
+
+We can solve this by mimicking the process we did manually: First we set a
+placeholder value for all labels, and then we go back and patch those values
+once we know the locations of all the labels. This process is know as
+backpatching and it is wonderfully explained in [Crafting
+Interpreters](https://craftinginterpreters.com/jumping-back-and-forth.html) by
+Robert Nystrom.

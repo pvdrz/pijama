@@ -56,24 +56,49 @@ pub enum InstructionKind {
         src: Imm32,
         dst: Register,
     },
-    Jump(Imm32),
+    Jump(Location),
     JumpEq {
         reg1: Register,
         reg2: Register,
-        target: Imm32,
+        target: Location,
     },
     JumpLt {
         reg1: Register,
         reg2: Register,
-        target: Imm32,
+        target: Location,
     },
     JumpGt {
         reg1: Register,
         reg2: Register,
-        target: Imm32,
+        target: Location,
     },
     Return,
     Call(Register),
+}
+
+pub enum Location {
+    Imm32(Imm32),
+    Label(Label),
+}
+
+impl From<Imm32> for Location {
+    fn from(value: Imm32) -> Self {
+        Self::Imm32(value)
+    }
+}
+
+impl From<Label> for Location {
+    fn from(label: Label) -> Self {
+        Self::Label(label)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Label(usize);
+
+pub struct Instruction {
+    pub label: Option<Label>,
+    pub kind: InstructionKind,
 }
 
 struct RexPrefix;
@@ -96,14 +121,40 @@ impl RexPrefix {
     }
 }
 
+struct Patch {
+    label: Label,
+    location: usize,
+}
+
 #[derive(Default)]
 pub struct Assembler {
     buf: Vec<u8>,
+    label_locations: Vec<usize>,
+    patches: Vec<Patch>,
 }
 
 impl Assembler {
-    pub fn assemble_instruction(&mut self, kind: InstructionKind) {
-        match kind {
+    pub fn new_label(&mut self) -> Label {
+        let label = Label(self.label_locations.len());
+
+        self.label_locations.push(0);
+
+        label
+    }
+
+    pub fn add_patch(&mut self, label: Label) {
+        self.patches.push(Patch {
+            label,
+            location: self.buf.len(),
+        })
+    }
+
+    pub fn assemble_instruction(&mut self, instruction: Instruction) {
+        if let Some(label) = instruction.label {
+            self.label_locations[label.0] = self.buf.len();
+        }
+
+        match instruction.kind {
             InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
@@ -226,22 +277,30 @@ impl Assembler {
         self.buf.extend_from_slice(&src.to_le_bytes());
     }
 
-    fn assemble_jump(&mut self, mut target: Imm32) {
+    fn assemble_jump(&mut self, target: Location) {
         let opcode = 0xE9;
 
-        // The jump target is relative to the IP after reading this instruction which has 1 + 4
-        // bytes.
-        target -= self.buf.len() as i32 + 0x5;
-
         self.buf.extend_from_slice(&[opcode]);
-        self.buf.extend_from_slice(&target.to_le_bytes());
+
+        match target {
+            Location::Imm32(mut target) => {
+                // The jump target is relative to the instruction pointer after reading this
+                // instruction which has 1 + 4 bytes.
+                target -= self.buf.len() as i32 + 0x4;
+                self.buf.extend_from_slice(&target.to_le_bytes());
+            }
+            Location::Label(label) => {
+                self.add_patch(label);
+                self.buf.extend_from_slice(&0x0i32.to_le_bytes());
+            }
+        }
     }
 
     fn assemble_conditional_jump<const OPCODE: u8>(
         &mut self,
         reg1: Register,
         reg2: Register,
-        mut target: i32,
+        target: Location,
     ) {
         let rex_prefix = RexPrefix::new(true, false, false);
         let opcode = 0x39;
@@ -251,15 +310,23 @@ impl Assembler {
             .rm(reg1 as u8)
             .build();
 
-        // apparently we need to make the target relative to the location of the instruction
-        // pointer after reading the instruction. This instruction always takes 9 bytes.
-        target -= self.buf.len() as i32 + 0x9;
-
         // cmp reg2,reg1
         self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
         // je target
         self.buf.extend_from_slice(&[0x0F, OPCODE]);
-        self.buf.extend_from_slice(&target.to_le_bytes());
+
+        match target {
+            Location::Imm32(mut target) => {
+                // The jump target is relative to the instruction pointer after reading this
+                // instruction which has 5 + 4 bytes.
+                target -= self.buf.len() as i32 + 0x4;
+                self.buf.extend_from_slice(&target.to_le_bytes());
+            }
+            Location::Label(label) => {
+                self.add_patch(label);
+                self.buf.extend_from_slice(&0x0i32.to_le_bytes());
+            }
+        }
     }
 
     fn assemble_return(&mut self) {
@@ -279,7 +346,13 @@ impl Assembler {
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
-    pub fn emit_code(self) -> Vec<u8> {
+    pub fn emit_code(mut self) -> Vec<u8> {
+        for Patch { label, location } in self.patches {
+            let label_location = self.label_locations[label.0 as usize];
+            self.buf[location..location + 4]
+                .copy_from_slice(&(label_location as i32 - location as i32 - 4).to_le_bytes());
+        }
+
         self.buf
     }
 }
@@ -316,7 +389,7 @@ macro_rules! reg {
 }
 
 #[macro_export]
-macro_rules! code {
+macro_rules! instruction_kind {
     (loadi {$imm64:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::LoadImm {
             src: $imm64,
@@ -353,33 +426,34 @@ macro_rules! code {
             dst: $crate::reg!($($reg2)*),
         }
     };
-     (addi {$imm32:expr},{$($reg:tt)+}) => {
+    (addi {$imm32:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::AddImm {
             src: $imm32,
             dst: $crate::reg!($($reg)+),
-        };
-    };   (jmp {$imm32:expr}) => {
-        $crate::asm::InstructionKind::Jump($imm32)
+        }
     };
-    (je {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+    (jmp {$loc:expr}) => {
+        $crate::asm::InstructionKind::Jump({$loc}.into())
+    };
+    (je {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
         $crate::asm::InstructionKind::JumpEq {
             reg1: $crate::reg!($($reg1)*),
             reg2: $crate::reg!($($reg2)*),
-            target: $imm32,
+            target: {$loc}.into(),
         }
     };
-    (jl {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+    (jl {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
         $crate::asm::InstructionKind::JumpLt {
             reg1: $crate::reg!($($reg1)*),
             reg2: $crate::reg!($($reg2)*),
-            target: $imm32,
+            target: {$loc}.into(),
         }
     };
-    (jg {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
+    (jg {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
         $crate::asm::InstructionKind::JumpGt {
             reg1: $crate::reg!($($reg1)*),
             reg2: $crate::reg!($($reg2)*),
-            target: $imm32,
+            target: {$loc}.into(),
         }
     };
     (ret) => {
@@ -387,5 +461,22 @@ macro_rules! code {
     };
     (call {$($reg:tt)*}) => {
         $crate::asm::InstructionKind::Call($crate::reg!($($reg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! code {
+    ($label:ident: $($tokens:tt)+) => {
+        $crate::asm::Instruction {
+            label: Some($label),
+            kind: $crate::instruction_kind!($($tokens)*)
+        }
+    };
+
+    ($($tokens:tt)*) => {
+        $crate::asm::Instruction {
+            label: None,
+            kind: $crate::instruction_kind!($($tokens)*)
+        }
     };
 }

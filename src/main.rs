@@ -22,15 +22,18 @@ fn main() -> Result<(), Box<dyn StdError>> {
     add_function(&mut obj, section, b"start", &asm.emit_code());
 
     let mut asm = Assembler::default();
-    asm.assemble_instruction(code!(loadi {0x0}, {rax})); // ret = 0
-    asm.assemble_instruction(code!(loadi {0x0}, {rdx})); // i = 0
+    let add = asm.new_label();
+    let cmp = asm.new_label();
 
-    asm.assemble_instruction(code!(jl { rdx }, { rdi }, { 0x1e })); // if i < arg goto addi
+    asm.assemble_instruction(code!(loadi {0x0}, {rax}));
+    asm.assemble_instruction(code!(loadi {0x0}, {rdx}));
+
+    asm.assemble_instruction(code!(cmp: jl { rdx }, { rdi }, { add }));
     asm.assemble_instruction(code!(ret));
 
-    asm.assemble_instruction(code!(addi {0x2},{rax}));
+    asm.assemble_instruction(code!(add: addi {0x2},{rax}));
     asm.assemble_instruction(code!(addi {0x1},{rdx}));
-    asm.assemble_instruction(code!(jmp { 0x14 }));
+    asm.assemble_instruction(code!(jmp { cmp }));
 
     add_function(&mut obj, section, b"duplicate", &asm.emit_code());
 
