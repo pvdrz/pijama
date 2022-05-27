@@ -955,15 +955,15 @@ long duplicate(long value) {
 
 which should be equivalent to something like
 ```asm
-    loadi 0x0,rax    ; output = 0
-    loadi 0x0,rdx    ; i = 0
+loadi 0x0,rax    ; output = 0
+loadi 0x0,rdx    ; i = 0
 
-    jl rdx,rdi,<ADD> ; if i < output jump to the first add
-    ret              ; else return output
+jl rdx,rdi,<ADD> ; if i < output jump to the first add
+ret              ; else return output
 
-    addi 0x2,rax     ; output += 2
-    addi 0x1,rdx     ; output += 1
-    jmp  <CMP>       ; jump back to the comparison
+addi 0x2,rax     ; output += 2
+addi 0x1,rdx     ; output += 1
+jmp  <CMP>       ; jump back to the comparison
 ```
 
 we need to figure out what are the values of `<ADD>` and `<CMP>`, to do this we
@@ -992,15 +992,15 @@ We can also see that the `jl` instruction is at `0x27` (or `0x17` relative to
 `duplicate`). With this information we can finally write our `duplicate`
 function as:
 ```asm
-    loadi 0x0,rax   ; output = 0
-    loadi 0x0,rdx   ; i = 0
+loadi 0x0,rax   ; output = 0
+loadi 0x0,rdx   ; i = 0
 
-    jl rdx,rdi,0x1e ; if i < output jump to the first add
-    ret             ; else return output
+jl rdx,rdi,0x1e ; if i < output jump to the first add
+ret             ; else return output
 
-    addi 0x2,rax    ; output += 2
-    addi 0x1,rdx    ; output += 1
-    jmp  0x17       ; jump back to the comparison
+addi 0x2,rax    ; output += 2
+addi 0x1,rdx    ; output += 1
+jmp  0x17       ; jump back to the comparison
 ```
 
 We test this by compiling and linking our object file and `main.c` and then
