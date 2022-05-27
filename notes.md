@@ -404,7 +404,7 @@ These are the instructions that we will use taken from the Intel's manual:
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 05 id     │ ADD RAX,imm32   │ I     │ Add imm32 sign-extended to 64-bits to RAX.            │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ FF /4             │ JMP r/m64       │ M     │ Jump near, absolute indirect.                         │
+│ E9 cd             │ JMP rel32       │ M     │ Jump near, displacement relative to next instruction. │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 39 /r     │ CMP r/m64,r64   │ MR    │ Compare r64 with r/m64.                               │
 ├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
@@ -735,21 +735,42 @@ add rdi,-0x21524111
 
 #### Jump
 
-We will use the `JMP r/m64` instruction which from the `/4` in the opcode, we
-know that we must set the `rem` field to `0x4`. The operand is encoded in the
-`r/m` field.
+We will use the `JMP rel32` instruction which encodes the operand as
+displacement bytes. According to the Intel manual, this operand is relative to
+the position of the instruction pointer after reading jump instruction (i.e.
+the start of the next instruction).
 
-We test this instruction in the same way as the other single operand instructions:
+However, `nasm` takes absolute positions and then encodes them as relative. For
+example, the following program
 ```nasm
 BITS 64
-jmp rax
-jmp rcx
-jmp rdx
-jmp rbx
-jmp rsp
-jmp rbp
-jmp rsi
-jmp rdi
+add rax,rcx
+jmp 0x0
+```
+will jump back to the absolute position `0x0`, i.e. to `add rax,rcx`, instead
+of doing nothing (jumping `0x0` bytes relative to the location of the
+instruction pointer should be a no-op). We can see this by assembling this
+program and disassembling it with `ndisasm -b64 -p intel <filename>`:
+
+```nasm
+00000000  4801C8            add rax,rcx
+00000003  E9F8FFFFFF        jmp 0x0
+```
+
+From here we can see that `jmp 0x0` was encoded as `E9F8FFFFFF`. The first byte
+we know it is the opcode `0xE9`. The remaining bytes, which are the
+little-endian encoding of -8, should be the displacement, which is relative to
+the start of the next instruction, or given that we don't have a next
+instruction, the end of the file, which is exactly 8 (the `jmp` instruction
+starts at byte 3 and it measures 5 bytes). So we are jumping -8 bytes relative
+to 8, which is the same as jumping to absolute position 0.
+
+We test this instruction by jumping with a relative offset of `0xdeadbeef`
+twice to be sure we got the absolute to relative offset correction right:
+```nasm
+BITS 64
+jmp -0x21524111
+jmp -0x21524111
 ```
 
 #### Conditional Jumps
@@ -776,10 +797,12 @@ substracts the second operand from the first and sets the status flags in the
 We can use this instruction and then use the `JE rel32` or jump if equal
 instruction which encodes the operand by appending it after the `0x84` byte.
 
-In other words, we will emit the following code to encode our `jz imm32,reg`:
+In other words, we will emit the following code to encode our `je
+reg1,reg2,imm32` instruction:
 
 ```nasm
-je   imm32   ; if `reg1 == reg2`, jump to `imm32`.
+cmp reg1,reg2 ; compare `reg1` and `reg2`
+je  imm32     ; if `reg1 == reg2`, do a relative jump to `imm32`.
 ```
 
 We test this instruction in the same way as the other two-operand instructions:
@@ -787,7 +810,7 @@ We test this instruction in the same way as the other two-operand instructions:
 BITS 64
 
 %macro jump_eq 2
-    cmp %2,%1
+    cmp %1,%2
     je  -0x21524111
 %endmacro
 

@@ -1,7 +1,7 @@
 BITS 64
 
 %macro jump_eq 2
-    cmp %2,%1
+    cmp %1,%2
     je  -0x21524111
 %endmacro
 

@@ -1,9 +1,3 @@
 BITS 64
-jmp rax
-jmp rcx
-jmp rdx
-jmp rbx
-jmp rsp
-jmp rbp
-jmp rsi
-jmp rdi
+jmp -0x21524111
+jmp -0x21524111

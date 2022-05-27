@@ -56,7 +56,7 @@ pub enum InstructionKind {
         src: Imm32,
         dst: Register,
     },
-    Jump(Address<()>),
+    Jump(Imm32),
     JumpEq {
         reg1: Register,
         reg2: Register,
@@ -111,7 +111,7 @@ impl Assembler {
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::AddImm { src, dst } => self.assemble_add_imm(src, dst),
-            InstructionKind::Jump(addr) => self.assemmble_jump(addr),
+            InstructionKind::Jump(target) => self.assemble_jump(target),
             InstructionKind::JumpEq { reg1, reg2, target } => {
                 self.assemble_conditional_jump::<0x84>(reg1, reg2, target)
             }
@@ -226,31 +226,14 @@ impl Assembler {
         self.buf.extend_from_slice(&src.to_le_bytes());
     }
 
-    fn assemmble_jump(&mut self, addr: Address<()>) {
-        let opcode = 0xFF;
-        let mod_rm = ModRmBuilder::new()
-            .direct()
-            .reg(0x4)
-            .rm(addr.base as u8)
-            .build();
+    fn assemble_jump(&mut self, mut target: Imm32) {
+        let opcode = 0xE9;
 
-        self.buf.extend_from_slice(&[opcode, mod_rm]);
-    }
+        // The jump target is relative to the IP after reading this instruction which has 1 + 4
+        // bytes.
+        target -= self.buf.len() as i32 + 0x5;
 
-    fn assemble_jump_if_zero(&mut self, mut target: Imm32, scr: Register) {
-        let rex_prefix = RexPrefix::new(true, false, false);
-        let opcode = 0x83;
-        let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(scr as u8).build();
-
-        // apparently we need to make the target relative to the location of the instruction
-        // pointer after reading the instruction. This instruction always takes 10 bytes.
-        target -= self.buf.len() as i32 + 0xa;
-
-        // cmp scr,0x0
-        self.buf
-            .extend_from_slice(&[rex_prefix, opcode, mod_rm, 0x0]);
-        // je target
-        self.buf.extend_from_slice(&[0x0F, 0x84]);
+        self.buf.extend_from_slice(&[opcode]);
         self.buf.extend_from_slice(&target.to_le_bytes());
     }
 
@@ -264,8 +247,8 @@ impl Assembler {
         let opcode = 0x39;
         let mod_rm = ModRmBuilder::new()
             .direct()
-            .reg(reg1 as u8)
-            .rm(reg2 as u8)
+            .reg(reg2 as u8)
+            .rm(reg1 as u8)
             .build();
 
         // apparently we need to make the target relative to the location of the instruction
@@ -308,6 +291,9 @@ macro_rules! reg {
     };
     (rcx) => {
         $crate::asm::Register::Cx
+    };
+    (rdx) => {
+        $crate::asm::Register::Dx
     };
     (rbx) => {
         $crate::asm::Register::Bx
@@ -372,11 +358,8 @@ macro_rules! code {
             src: $imm32,
             dst: $crate::reg!($($reg)+),
         };
-    };   (jmp {$($addr:tt)*}) => {
-        $crate::asm::InstructionKind::Jump($crate::asm::Address {
-            base: $crate::reg!($($addr)*),
-            offset: (),
-        })
+    };   (jmp {$imm32:expr}) => {
+        $crate::asm::InstructionKind::Jump($imm32)
     };
     (je {$($reg1:tt)*},{$($reg2:tt)*},{$imm32:expr}) => {
         $crate::asm::InstructionKind::JumpEq {
