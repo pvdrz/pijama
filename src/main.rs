@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let section = obj.section_id(StandardSection::Text);
 
     let mut asm = Assembler::default();
-    asm.assemble_instruction(code!(loadi {0x9}, {rax}));
+    asm.assemble_instruction(code!(loadi {0xa}, {rax}));
     asm.assemble_instruction(code!(ret));
     add_function(&mut obj, section, b"start", &asm.emit_code());
 

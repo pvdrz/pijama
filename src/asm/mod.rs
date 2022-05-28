@@ -37,6 +37,10 @@ pub enum InstructionKind {
         src: Register,
         dst: Address<Imm32>,
     },
+    Mov {
+        src: Register,
+        dst: Register,
+    },
     Push(Register),
     Pop(Register),
     Add {

@@ -339,6 +339,8 @@ This will be our starting instruction set:
 ├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
 │ Store                │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.                                       │
 ├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Move                 │ mov src,dst          │ Move the contents of src into dst.                                                 │
+├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
 │ Push                 │ push reg             │ Push the contents of reg into the stack.                                           │
 ├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
 │ Pop                  │ pop reg              │ Pop a value from the stack and put it in reg.                                      │
@@ -623,6 +625,38 @@ BITS 64
     store %1,rbp
     store %1,rsi
     store %1,rdi
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
+```
+#### Move
+
+We will encode this instruction by reusing the `MOV r/m64,r64` instruction with
+one single difference: We will the `mod` field to `0x11` to enable the direct
+adressing mode because we want to access the contents of the register instead
+of interpreting them as an address.
+
+We test this in the same as way we did with the `store` instruction:
+
+```nasm
+BITS 64
+
+%macro expand 1
+    mov rax,%1
+    mov rcx,%1
+    mov rdx,%1
+    mov rbx,%1
+    mov rsp,%1
+    mov rbp,%1
+    mov rsi,%1
+    mov rdi,%1
 %endmacro
 
 expand rax
@@ -922,14 +956,13 @@ that the return value must be in the `rax` register. One way to write our
 function would be
 
 ```asm
-loadi 0x0,rax
-add   rdi,rax
+mov   rdi,rax
 add   rdi,rax
 ret
 ```
 
-We first set the `rax` register to zero to be on the safe side and then add
-`value` twice to `rax`.
+We first move `value` (which is stored in `rdi`) to `rax` and then add `value`
+to `rax`.
 
 If we link `main.c` against our object file and run it, we should get the same
 output as with the `lib.c` library.

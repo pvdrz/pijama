@@ -142,6 +142,20 @@ fn store() {
 
     compare(expected_bytes, asm.emit_code().as_slice());
 }
+#[test]
+fn mov() {
+    let expected_bytes = include_bytes!("mov.out");
+
+    let mut asm = Assembler::default();
+
+    for src in REGISTERS {
+        for dst in REGISTERS {
+            asm.assemble_instruction(code!(mov { src }, { dst }));
+        }
+    }
+
+    compare(expected_bytes, asm.emit_code().as_slice());
+}
 
 #[test]
 fn push() {

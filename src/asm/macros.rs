@@ -55,6 +55,12 @@ macro_rules! instruction_kind {
             },
         }
     };
+    (mov {$($reg1:tt)*}, {$($reg2:tt)*}) => {
+        $crate::asm::InstructionKind::Mov {
+            src: $crate::reg!($($reg1)*),
+            dst: $crate::reg!($($reg2)*),
+        }
+    };
     (push {$($reg:tt)*}) => {
         $crate::asm::InstructionKind::Push($crate::reg!($($reg)*))
     };

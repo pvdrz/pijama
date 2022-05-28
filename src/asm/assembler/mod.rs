@@ -67,6 +67,7 @@ impl Assembler {
             InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
+            InstructionKind::Mov { src, dst } => self.assemble_mov(src, dst),
             InstructionKind::Push(reg) => self.assemble_push(reg),
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
@@ -143,6 +144,18 @@ impl Assembler {
         }
 
         self.buf.extend_from_slice(&dst.offset.to_le_bytes());
+    }
+
+    fn assemble_mov(&mut self, src: Register, dst: Register) {
+        let rex_prefix = rex(true, false, false);
+        let opcode = 0x89;
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(src as u8)
+            .rm(dst as u8)
+            .build();
+
+        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
     }
 
     fn assemble_push(&mut self, reg: Register) {
