@@ -1061,19 +1061,30 @@ long duplicate(long value) {
 ```
 
 which should be equivalent to something like
+
+    asm.assemble_instruction(code! { cmp: slt {rdx},{rdi},{rcx} });
+    asm.assemble_instruction(code! {      jz  {rcx}, {end} });
+
+    asm.assemble_instruction(code! {      addi {0x2},{rax} });
+    asm.assemble_instruction(code! {      addi {0x1},{rdx} });
+    asm.assemble_instruction(code! {      jmp  {cmp} });
+
+    asm.assemble_instruction(code! { end: ret });
 ```asm
 loadi 0x0,rax    ; output = 0
 loadi 0x0,rdx    ; i = 0
 
-jl rdx,rdi,<ADD> ; if i < output jump to the first add
-ret              ; else return output
+stl rdx,rdi,rcx  ; <CMP>: comp = i < output
+jz  rcx,<END>    ; if comp, go to return
 
 addi 0x2,rax     ; output += 2
 addi 0x1,rdx     ; output += 1
-jmp  <CMP>       ; jump back to the comparison
+jmp  <CMP>       ; go back to the comparison
+
+ret              ; <END>: return
 ```
 
-we need to figure out what are the values of `<ADD>` and `<CMP>`, to do this we
+we need to figure out what are the values of `<END>` and `<CMP>`, to do this we
 can set both of them to zero, assemble our code and then disassemble it with
 `objdump`:
 ```objdump
@@ -1081,11 +1092,14 @@ can set both of them to zero, assemble our code and then disassemble it with
   10:   48 b8 00 00 00 00 00 00 00 00   movabs rax,0x0
   1a:   48 ba 00 00 00 00 00 00 00 00   movabs rdx,0x0
   24:   48 39 fa                cmp    rdx,rdi
-  27:   0f 8c e3 ff ff ff       jl     10 <duplicate>
-  2d:   c3                      ret
-  2e:   48 05 02 00 00 00       add    rax,0x2
-  34:   48 81 c2 01 00 00 00    add    rdx,0x1
-  3b:   e9 d0 ff ff ff          jmp    10 <duplicate>
+  27:   48 b9 00 00 00 00 00 00 00 00   movabs rcx,0x0
+  31:   0f 9c c1                setl   cl
+  34:   48 81 f9 00 00 00 00    cmp    rcx,0x0
+  3b:   0f 84 cf ff ff ff       je     10 <duplicate>
+  41:   48 05 02 00 00 00       add    rax,0x2
+  47:   48 81 c2 01 00 00 00    add    rdx,0x1
+  4e:   e9 bd ff ff ff          jmp    10 <duplicate>
+  53:   c3                      ret
 ```
 
 From here we can appreciate that jump operands are taken by the assembler as
@@ -1094,20 +1108,22 @@ relative to the beginning of the symbol: `jmp 0x0` is encoded as a jump to
 reality because we know that jumps are always relative to the instruction
 pointer.
 
-We can also see that the `jl` instruction is at `0x27` (or `0x17` relative to
-`duplicate`) and that the first `add` is at `0x2e` (or `0x1e` relative to
-`duplicate`). With this information we can finally write our `duplicate`
-function as:
+We can also see that the first `cmp` instruction is at `0x24` (or `0x14`
+relative to `duplicate`) and that the `ret` instruction is at `0x53` (or `0x43`
+relative to `duplicate`). With this information we can finally write our
+`duplicate` function as:
 ```asm
-loadi 0x0,rax   ; output = 0
-loadi 0x0,rdx   ; i = 0
+loadi 0x0,rax    ; output = 0
+loadi 0x0,rdx    ; i = 0
 
-jl rdx,rdi,0x1e ; if i < output jump to the first add
-ret             ; else return output
+stl rdx,rdi,rcx  ; comp = i < output
+jz  rcx,0x43     ; if comp, go to return
 
-addi 0x2,rax    ; output += 2
-addi 0x1,rdx    ; output += 1
-jmp  0x17       ; jump back to the comparison
+addi 0x2,rax     ; output += 2
+addi 0x1,rdx     ; output += 1
+jmp  0x14        ; go back to the comparison
+
+ret              ; return
 ```
 
 We test this by compiling and linking our object file and `main.c` and then
@@ -1124,15 +1140,17 @@ the concept of labels.
 A label is an identifier used to reference a particular instruction, meaning
 that we can use them instead of writing numeric positions:
 ```asm
-      loadi 0x0,rax   ; output = 0
-      loadi 0x0,rdx   ; i = 0
+      loadi 0x0,rax    ; output = 0
+      loadi 0x0,rdx    ; i = 0
 
-.cmp: jl rdx,rdi,.add ; if i < output jump to the first add
-      ret             ; else return output
+.cmp: stl rdx,rdi,rcx  ; comp = i < output
+      jz  rcx,0x43     ; if comp, go to return
 
-.add: addi 0x2,rax    ; output += 2
-      addi 0x1,rdx    ; output += 1
-      jmp  .cmp       ; jump back to the comparison
+      addi 0x2,rax     ; output += 2
+      addi 0x1,rdx     ; output += 1
+      jmp  0x14        ; go back to the comparison
+
+.end: ret              ; return
 ```
 
 This means that our assembler should be able to know the location of an
