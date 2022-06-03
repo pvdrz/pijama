@@ -1075,7 +1075,7 @@ loadi 0x0,rax    ; output = 0
 loadi 0x0,rdx    ; i = 0
 
 stl rdx,rdi,rcx  ; <CMP>: comp = i < output
-jz  rcx,<END>    ; if comp, go to return
+jz  rcx,<END>    ; if comp is false, go to return
 
 addi 0x2,rax     ; output += 2
 addi 0x1,rdx     ; output += 1
@@ -1117,7 +1117,7 @@ loadi 0x0,rax    ; output = 0
 loadi 0x0,rdx    ; i = 0
 
 stl rdx,rdi,rcx  ; comp = i < output
-jz  rcx,0x43     ; if comp, go to return
+jz  rcx,0x43     ; if comp is false, go to return
 
 addi 0x2,rax     ; output += 2
 addi 0x1,rdx     ; output += 1
@@ -1144,7 +1144,7 @@ that we can use them instead of writing numeric positions:
       loadi 0x0,rdx    ; i = 0
 
 .cmp: stl rdx,rdi,rcx  ; comp = i < output
-      jz  rcx,0x43     ; if comp, go to return
+      jz  rcx,0x43     ; if comp is false, go to return
 
       addi 0x2,rax     ; output += 2
       addi 0x1,rdx     ; output += 1
