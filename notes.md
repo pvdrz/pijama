@@ -1155,8 +1155,8 @@ that we can use them instead of writing numeric positions:
 
 This means that our assembler should be able to know the location of an
 instruction which has a label, even if the labels are defined "after" being
-used. For example, the `.end` label is defined in the `ret` instruction
-which appears later than its first use in the `jz` instruction.
+used. For example, the `.end` label is defined in the `ret` instruction which
+appears later than its first use in the `jz` instruction.
 
 We can solve this by mimicking the process we did manually: First we set a
 placeholder value for all labels, and then we go back and patch those values
@@ -1164,3 +1164,106 @@ once we know the locations of all the labels. This process is know as
 backpatching and it is wonderfully explained in [Crafting
 Interpreters](https://craftinginterpreters.com/jumping-back-and-forth.html) by
 Robert Nystrom.
+
+# Writing an intermediate representation
+
+Having our basic assembler working, we can move on to the next step and build
+an intermediate representation that gives us a bit more structure.
+
+This intermediate representation will be heavily inspired by [Rust's
+MIR](https://rust-lang.github.io/rfcs/1211-mir.html)
+
+The largest unit in MIR is a function. A function contains a collection of
+basic blocks that can be thought as a directed graph.
+
+```
+BASIC_BLOCK ::= BB: STATEMENT* TERMINATOR
+```
+
+Each block has a label or identifier (`BB`) and is composed of zero or more
+statements and one terminator.
+
+The main difference between statements and terminators is that a statement
+never affects the control-flow of the program, statements are always executed
+sequentially and terminators alter the control-flow by calling other functions
+or jumping to different blocks.
+
+For now we will only define a single kind of statements, assignments:
+```
+STATEMENT ::= LOCAL = RVALUE
+```
+
+Each assignment has an `RVALUE` which represents a value to be computed and
+then stored in a `LOCAL`.
+
+We define two different kinds of rvalues, uses and binary operations:
+```
+RVALUE ::= USE OPERAND
+         | OPERAND BINOP OPERAND
+
+BINOP ::= + | <
+```
+
+Uses just yield the operand they contain and binary operations yield a new
+value from two existing operands according to the binary operator they use, we
+will only define the addition and the less than operators.
+
+Operands are basically values. We have two kinds of them, constants and locals:
+```
+OPERAND ::= CONSTANT | LOCAL
+```
+
+Which bring us back to locals, which are values local to a function, we can
+think them as the state of the function and they are shared between blocks.
+Following Rust's convention, the first local (usually denoted `_0`) stores the
+value to be returned by the function. If our function has `N` arguments, those
+are stored in locals `_1` to `_N`. Any additional locals hold intermediate
+values introduced by either the programmer or the compiler.
+
+Finally we have terminators:
+```
+TERMINATOR ::= JUMP BB
+             | JUMP IF OPERAND THEN BB ELSE BB
+             | RETURN
+```
+
+There are three kinds: unconditional jumps, conditional jumps based on the
+truth value of an operand and returns.
+
+To have a few examples we can reproduce the `start` and `duplicate` functions
+we have been using:
+```
+// start
+bb0: _0 = USE 10
+     RETURN
+
+// duplicate
+bb0: _0 = USE 0
+     _2 = USE 0
+     JUMP bb1
+
+bb1: _3 = _2 < _1
+     JUMP IF _3 THEN bb2 ELSE bb3
+
+bb2: _0 = _0 + 2
+     _2 = _2 + 1
+     JUMP bb1
+
+bb3: RETURN
+```
+
+The `start` function is fairly simple, it puts the value `10` in the `_0` local
+and returns. `duplicate` is a bit more complex, it uses two intermediate
+locals: `_2` which holds the `i` variable, and `_3` which holds the result of
+the comparison. However, it's structure is pretty similar to the assembly we
+wrote before.
+
+Most of the elements of this representation translate directly to our assembly:
+Constants can be lowered to immediates, block identifiers map to labels, all
+terminators can be written using `ret`, `jz` and `jmp`, assignments can be
+written using `mov`, `loadi`, `add` and `stl`. However, locals don't translate
+directly to registers because we can have more locals than physical registers.
+This means that a single register could be used to store different locals or
+that some locals are stored in the stack. This process of assigning registers
+is known as register allocation. For now, we will shove this problem under the
+rug and assume that we can fit all locals in registers.
