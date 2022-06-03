@@ -1144,19 +1144,19 @@ that we can use them instead of writing numeric positions:
       loadi 0x0,rdx    ; i = 0
 
 .cmp: stl rdx,rdi,rcx  ; comp = i < output
-      jz  rcx,0x43     ; if comp is false, go to return
+      jz  rcx,.end     ; if comp is false, go to return
 
       addi 0x2,rax     ; output += 2
       addi 0x1,rdx     ; output += 1
-      jmp  0x14        ; go back to the comparison
+      jmp  .cmp        ; go back to the comparison
 
 .end: ret              ; return
 ```
 
 This means that our assembler should be able to know the location of an
 instruction which has a label, even if the labels are defined "after" being
-used. For example, the `.add` label is defined in the first `addi` instruction
-which appears later than its first use in the `jl` instruction.
+used. For example, the `.end` label is defined in the `ret` instruction
+which appears later than its first use in the `jz` instruction.
 
 We can solve this by mimicking the process we did manually: First we set a
 placeholder value for all labels, and then we go back and patch those values
