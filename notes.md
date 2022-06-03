@@ -330,37 +330,35 @@ set you'll notice that I took some inspiration from them.
 This will be our starting instruction set:
 
 ```
-┌──────────────────────┬──────────────────────┬────────────────────────────────────────────────────────────────────────────────────┐
-│ Name                 │ Instruction          │ Description                                                                        │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Load Immediate       │ loadi imm64,reg      │ Load the imm64 value into reg.                                                     │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Load Address         │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.                                        │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Store                │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.                                       │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Move                 │ mov src,dst          │ Move the contents of src into dst.                                                 │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Push                 │ push reg             │ Push the contents of reg into the stack.                                           │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Pop                  │ pop reg              │ Pop a value from the stack and put it in reg.                                      │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Add                  │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.                                  │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Add Immediate        │ addi imm32,reg       │ Add the imm32 value to the contents of reg.                                        │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump                 │ jmp addr             │ Jump to the value stored in addr.                                                  │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump If Equal        │ jz reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are equal to the contents of reg2.        │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump If Less Than    │ jl reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are smaller than to the contents of reg2. │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Jump If Greater Than │ jg reg1,reg2,imm32   │ Jump imm32 bytes if the contents of reg1 are larger than to the contents of reg2.  │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Return               │ ret                  │ Transfer control to the address in the top of the stack.                           │
-├──────────────────────┼──────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
-│ Call                 │ call reg             │ Transfer control to the address contained in reg.                                  │
-└──────────────────────┴──────────────────────┴────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────┬──────────────────────┬─────────────────────────────────────────────────────────────────────────────────┐
+│ Name                 │ Instruction          │ Description                                                                     │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Load Immediate       │ loadi imm64,reg      │ Load the imm64 value into reg.                                                  │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Load Address         │ loada addr+imm32,reg │ Load the contents of addr + imm32 into reg.                                     │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Store                │ store reg,addr+imm32 │ Store the contents of reg into addr + imm32.                                    │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Move                 │ mov reg1,reg2        │ Move the contents of reg1 into reg2.                                            │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Push                 │ push reg             │ Push the contents of reg into the stack.                                        │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Pop                  │ pop reg              │ Pop a value from the stack and put it in reg.                                   │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Add                  │ add reg1,reg2        │ Add the contents of reg1 to the contents of reg2.                               │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Add Immediate        │ addi imm32,reg       │ Add the imm32 value to the contents of reg.                                     │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Set If Less Than     │ slt reg1,reg2,reg3   │ Set reg3 to zero if the contents of reg1 are smaller than the contents of reg2. │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Jump                 │ jmp addr             │ Jump to the value stored in addr.                                               │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Jump If Zero         │ jz reg,imm32         │ Jump imm32 bytes if the contents of reg are zero.                               │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Return               │ ret                  │ Transfer control to the address in the top of the stack.                        │
+├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+│ Call                 │ call reg             │ Transfer control to the address contained in reg.                               │
+└──────────────────────┴──────────────────────┴─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Before starting to generate machine code for these instructions we need to
@@ -370,12 +368,12 @@ The easiest operand kind to understand are the immediates `imm32` and `imm64`
 which are just constant signed integer values. We represent them with the `i32`
 and `i64` types in Rust.
 
-Then we have registers or `reg`. The `x86` architecture has 16 general purpose
-registers in 64-bit mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`, `rsi`,
-`rdi` `r8`, ..., `r14` and `r15`, we will only use the first 8 for now.
-Additionally we have the `rip` register which holds the instruction pointer.
-There are other specific purpose registers that we will discuss if we need
-them.
+Then we have register operands which we denote by `reg`, `reg1`, `reg1`, `reg2`
+and so on. The `x86` architecture has 16 general purpose registers in 64-bit
+mode: `rax`, `rcx`, `rdx`, `rbx`, `rsp`, `rbp`, `rsi`, `rdi` `r8`, ..., `r14`
+and `r15`, we will only use the first 8 for now. Additionally we have the `rip`
+register which holds the instruction pointer. There are other specific purpose
+registers that we will discuss if we need them.
 
 Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that base addresses are stored in a register, we will extend this
@@ -387,39 +385,41 @@ Now we are ready to encode those instructions as valid `x86` machine code.
 These are the instructions that we will use taken from the Intel's manual:
 
 ```
-┌───────────────────┬─────────────────┬───────┬───────────────────────────────────────────────────────┐
-│ Opcode            │ Instruction     │ Op/En │ Description                                           │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + B8+ rd io │ MOV r64, imm64  │ OI    │ Move imm64 to r64.                                    │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 8B /r     │ MOV r64,r/m64   │ RM    │ Move r/m64 to r64.                                    │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 89 /r     │ MOV r/m64,r64   │ MR    │ Move r64 to m/r64.                                    │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 50 + rd           │ PUSH r64        │ M     │ Push r/m64.                                           │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 58 + rd           │ POP r/m64       │ M     │ Pop top of stack into m64; increment stack pointer.   │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 01 /r     │ ADD r/m64,r64   │ MR    │ Add r64 to r/m64.                                     │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 81 /0 id  │ ADD r/m64,imm32 │ MI    │ Add imm32 sign-extended to 64-bits to r/m64.          │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 05 id     │ ADD RAX,imm32   │ I     │ Add imm32 sign-extended to 64-bits to RAX.            │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ E9 cd             │ JMP rel32       │ M     │ Jump near, displacement relative to next instruction. │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 39 /r     │ CMP r/m64,r64   │ MR    │ Compare r64 with r/m64.                               │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 0F 84 cd          │ JE rel32        │ D     │ Jump near if equal.                                   │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 0F 8C cd          │ JL rel32        │ D     │ Jump near if less.                                    │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ 0F 8F cd          │ JG rel32        │ D     │ Jump near if greater                                  │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ C3                │ RET             │ ZO    │ Near return to calling procedure.                     │
-├───────────────────┼─────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ FF /2             │ CALL r/m64      │ M     │ Call near, absolute indirect, address given in r/m64. │
-└───────────────────┴─────────────────┴───────┴───────────────────────────────────────────────────────┘
+┌───────────────────┬──────────────────┬───────┬───────────────────────────────────────────────────────┐
+│ Opcode            │ Instruction      │ Op/En │ Description                                           │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + B8+ rd io │ MOV r64, imm64   │ OI    │ Move imm64 to r64.                                    │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 8B /r     │ MOV r64,r/m64    │ RM    │ Move r/m64 to r64.                                    │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 89 /r     │ MOV r/m64,r64    │ MR    │ Move r64 to m/r64.                                    │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 50 + rd           │ PUSH r64         │ M     │ Push r/m64.                                           │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 58 + rd           │ POP r/m64        │ M     │ Pop top of stack into m64; increment stack pointer.   │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 01 /r     │ ADD r/m64,r64    │ MR    │ Add r64 to r/m64.                                     │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 81 /0 id  │ ADD r/m64,imm32  │ MI    │ Add imm32 sign-extended to 64-bits to r/m64.          │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 05 id     │ ADD RAX,imm32    │ I     │ Add imm32 sign-extended to 64-bits to RAX.            │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 0F 9C     │ SETL r/m8        │ M     │ Set byte if less.                                     │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 3D id 	│ CMP RAX,imm32    │ I     │ Compare imm32 sign-extended to 64-bits with RAX.      │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 39 /r     │ CMP r/m64,r64    │ MR    │ Compare r64 with r/m64.                               │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ REX.W + 81 /7 id 	│ CMP r/m64,imm32  │ MI    │ Compare imm32 sign-extended to 64-bits with r/m64.    │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ E9 cd             │ JMP rel32        │ M     │ Jump near, displacement relative to next instruction. │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ 0F 84 cd          │ JE rel32         │ D     │ Jump near if equal.                                   │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ C3                │ RET              │ ZO    │ Near return to calling procedure.                     │
+├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
+│ FF /2             │ CALL r/m64       │ M     │ Call near, absolute indirect, address given in r/m64. │
+└───────────────────┴──────────────────┴───────┴───────────────────────────────────────────────────────┘
 ```
 
 all these instructions are valid in 64-bit mode. One important thing to notice
@@ -767,6 +767,92 @@ add rsi,-0x21524111
 add rdi,-0x21524111
 ```
 
+#### Set If Less Than
+
+This is an interesting instruction because it does not map to a single
+`x86` instruction. In `x86`, comparisons are done using with the `CMP`
+instruction and its results are always stored in the special `RFLAGS` register.
+This `RFLAGS` register is usually interpreted as a sequence of status flags
+indicating the result of the comparison. Then, we can use the `SETL`
+instruction to set the lowest byte of the target register to zero. However,
+that doesn't clean the rest of the bytes of the register, which means that for
+sanity we have to set the target register to zero before using `SETL`.
+
+This means that `stl reg1,reg2,reg3` should be encoded as:
+
+```nasm
+cmp  reg1,reg2
+mov  reg3,0x0
+setl reg3
+```
+
+There are faster ways to set `reg3` to zero but using `mov` allow us to reuse
+the code we wrote for Load Immediate. It is very important that we set `reg3`
+to zero after we do the comparison, otherwise doing `slt a,b,a` would do
+something like:
+```nasm
+mov  a,0x0
+cmp  a,b
+setl a
+```
+
+Overwriting the value of `a` before the comparison.
+
+Now we can move on to the actual encoding. First, we will use the `CMP
+r/m64,r64` which encodes the first operand in the `r/m` field and the second
+operand in the `reg` field.
+
+Then we will use the `SETL r/m8` instruction which encodes its operand in the
+`r/m` field. The `reg` field can take any value but we will set it to zero.
+This instruction requires the `REX` prefix to use the `rsp` `rbp`, `rsi` and
+`rdi` registers so we have to take this special case into account.
+
+We test this instruction with every possible register combination:
+```nasm
+BITS 64
+
+%macro slt 4
+    cmp  %1,%2
+    mov  %3,qword 0x0
+    setl %4
+%endmacro
+
+%macro slt2 2
+    slt %1,%2,rax,al
+    slt %1,%2,rcx,cl
+    slt %1,%2,rdx,dl
+    slt %1,%2,rbx,bl
+    slt %1,%2,rsp,spl
+    slt %1,%2,rbp,bpl
+    slt %1,%2,rsi,sil
+    slt %1,%2,rdi,dil
+%endmacro
+
+%macro expand 1
+    slt2 %1,rax
+    slt2 %1,rcx
+    slt2 %1,rdx
+    slt2 %1,rbx
+    slt2 %1,rsp
+    slt2 %1,rbp
+    slt2 %1,rsi
+    slt2 %1,rdi
+%endmacro
+
+expand rax
+expand rcx
+expand rdx
+expand rbx
+expand rsp
+expand rbp
+expand rsi
+expand rdi
+```
+
+See that the operand of `setl` is set to `al`, `cl`, `dl` and so on instead
+of `rax`, `rcx`, `rdx` and so on because `setl` takes an 8-bit register, so we
+must use the lowest-byte register counterpart to each 64-bit register.
+
 #### Jump
 
 We will use the `JMP rel32` instruction which encodes the operand as
@@ -815,33 +901,24 @@ final position of the jump is in the first operand but this is relative to the
 current location (in other words, the position of the instruction pointer after
 reading this instruction).
 
-This is an interesting instruction because we cannot encode it as a single
-`x86` instruction. Conditional jumps in `x86` are done by first comparing two
-operands. The result of this comparison is stored in the special `RFLAGS`
-register. The actual conditional jump instruction uses the `RFLAGS` register to
-decide to jump or not. This `RFLAGS` register is a sequence of status flags
-indicating the result of the comparison.
+In the same fashion as the Set If Less Than instruction, the first thing we
+need to do is emit a compare instruction between our operand and zero. We will
+use the `CMP r/m64,imm32` which encodes the first operand in the `r/m` field
+and the second operand as displacement bytes. There is a special case for the
+`RAX` register because we can use the `CMP RAX,imm32` instruction which is
+shorter and encodes its operand as displacement bytes.
 
-So the first thing we need to do emit a compare instruction between our operand
-and zero. We will use the `CMP r/m64,r64` which encodes the first operand in
-the `r/m` field and the second operand in the `reg` field. This instruction
-substracts the second operand from the first and sets the status flags in the
-`RFLAGS` register based on the result of the substraction.
+Then we emit a `JE rel32` or jump if equal instruction which encodes the
+operand by appending it after the `0x84` byte.
 
-We can use this instruction and then use the `JE rel32` or jump if equal
-instruction which encodes the operand by appending it after the `0x84` byte.
-
-In other words, we will emit the following code to encode our `je
-reg1,reg2,imm32` instruction:
-
+In other words, we will encode our `jz reg,imm32` instruction as:
 ```nasm
-cmp reg1,reg2 ; compare `reg1` and `reg2`
-je  imm32     ; if `reg1 == reg2`, do a relative jump to `imm32`.
+cmp reg,0x0
+je  imm32
 ```
 
 We test this instruction in the same way as the other two-operand instructions:
-```nasm
-BITS 64
+```nasm BITS 64
 
 %macro jump_eq 2
     cmp %1,%2
@@ -868,9 +945,6 @@ expand rbp
 expand rsi
 expand rdi
 ```
-
-The other two instructions are encoded in a similar way but using the `JL
-rel32` and `JG rel32` instructions instead of `JE rel32`.
 
 #### Return
 

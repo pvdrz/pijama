@@ -51,20 +51,14 @@ pub enum InstructionKind {
         src: Imm32,
         dst: Register,
     },
+    SetIfLess {
+        src1: Register,
+        src2: Register,
+        dst: Register,
+    },
     Jump(Location),
-    JumpEq {
-        reg1: Register,
-        reg2: Register,
-        target: Location,
-    },
-    JumpLt {
-        reg1: Register,
-        reg2: Register,
-        target: Location,
-    },
-    JumpGt {
-        reg1: Register,
-        reg2: Register,
+    JumpIfZero {
+        src: Register,
         target: Location,
     },
     Return,

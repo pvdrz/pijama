@@ -82,25 +82,17 @@ macro_rules! instruction_kind {
     (jmp {$loc:expr}) => {
         $crate::asm::InstructionKind::Jump({$loc}.into())
     };
-    (je {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
-        $crate::asm::InstructionKind::JumpEq {
-            reg1: $crate::reg!($($reg1)*),
-            reg2: $crate::reg!($($reg2)*),
+    (jz {$($reg:tt)*},{$loc:expr}) => {
+        $crate::asm::InstructionKind::JumpIfZero {
+            src: $crate::reg!($($reg)*),
             target: {$loc}.into(),
         }
     };
-    (jl {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
-        $crate::asm::InstructionKind::JumpLt {
-            reg1: $crate::reg!($($reg1)*),
-            reg2: $crate::reg!($($reg2)*),
-            target: {$loc}.into(),
-        }
-    };
-    (jg {$($reg1:tt)*},{$($reg2:tt)*},{$loc:expr}) => {
-        $crate::asm::InstructionKind::JumpGt {
-            reg1: $crate::reg!($($reg1)*),
-            reg2: $crate::reg!($($reg2)*),
-            target: {$loc}.into(),
+    (slt {$($reg1:tt)*},{$($reg2:tt)*},{$($reg3:tt)*}) => {
+        $crate::asm::InstructionKind::SetIfLess {
+            src1: $crate::reg!($($reg1)*),
+            src2: $crate::reg!($($reg2)*),
+            dst: $crate::reg!($($reg3)*),
         }
     };
     (ret) => {

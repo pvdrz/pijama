@@ -72,16 +72,11 @@ impl Assembler {
             InstructionKind::Pop(reg) => self.assemble_pop(reg),
             InstructionKind::Add { src, dst } => self.assemble_add(src, dst),
             InstructionKind::AddImm { src, dst } => self.assemble_add_imm(src, dst),
+            InstructionKind::SetIfLess { src1, src2, dst } => {
+                self.assemble_set_if::<0x9c>(src1, src2, dst)
+            }
             InstructionKind::Jump(target) => self.assemble_jump(target),
-            InstructionKind::JumpEq { reg1, reg2, target } => {
-                self.assemble_conditional_jump::<0x84>(reg1, reg2, target)
-            }
-            InstructionKind::JumpLt { reg1, reg2, target } => {
-                self.assemble_conditional_jump::<0x8C>(reg1, reg2, target)
-            }
-            InstructionKind::JumpGt { reg1, reg2, target } => {
-                self.assemble_conditional_jump::<0x8F>(reg1, reg2, target)
-            }
+            InstructionKind::JumpIfZero { src, target } => self.assemble_jump_if_zero(src, target),
             InstructionKind::Return => self.assemble_return(),
             InstructionKind::Call(target) => self.assemble_call(target),
         }
@@ -199,8 +194,32 @@ impl Assembler {
         self.buf.extend_from_slice(&src.to_le_bytes());
     }
 
+    fn assemble_set_if<const OPCODE: u8>(&mut self, src1: Register, src2: Register, dst: Register) {
+        let rex_prefix = rex(true, false, false);
+        let opcode = 0x39;
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(src2 as u8)
+            .rm(src1 as u8)
+            .build();
+
+        // cmp reg2,reg1
+        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+
+        self.assemble_load_imm(0x0, dst);
+
+        // setl dst
+        if let Register::Di | Register::Si | Register::Bp | Register::Sp = dst {
+            let rex_prefix = rex(false, false, false);
+            self.buf.extend_from_slice(&[rex_prefix]);
+        }
+        let opcode = 0x0f;
+        let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
+        self.buf.extend_from_slice(&[opcode, OPCODE, mod_rm]);
+    }
+
     fn assemble_jump(&mut self, target: Location) {
-        let opcode = 0xE9;
+        let opcode = 0xe9;
 
         self.buf.extend_from_slice(&[opcode]);
 
@@ -218,24 +237,25 @@ impl Assembler {
         }
     }
 
-    fn assemble_conditional_jump<const OPCODE: u8>(
-        &mut self,
-        reg1: Register,
-        reg2: Register,
-        target: Location,
-    ) {
+    fn assemble_jump_if_zero(&mut self, src: Register, target: Location) {
         let rex_prefix = rex(true, false, false);
-        let opcode = 0x39;
-        let mod_rm = ModRmBuilder::new()
-            .direct()
-            .reg(reg2 as u8)
-            .rm(reg1 as u8)
-            .build();
 
-        // cmp reg2,reg1
-        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        // cmp src,0x0
+        if let Register::Ax = src {
+            let opcode = 0x3d;
+
+            self.buf.extend_from_slice(&[rex_prefix, opcode]);
+        } else {
+            let opcode = 0x81;
+            let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(src as u8).build();
+
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        }
+
+        self.buf.extend_from_slice(&0x0u32.to_le_bytes());
+
         // je target
-        self.buf.extend_from_slice(&[0x0F, OPCODE]);
+        self.buf.extend_from_slice(&[0x0f, 0x84]);
 
         match target {
             Location::Imm32(mut target) => {

@@ -102,7 +102,7 @@ fn compare(expected: &[u8], found: &[u8]) {
 
 #[test]
 fn loadi() {
-    let expected_bytes = include_bytes!("loadi.out");
+    let expected_bytes = include_bytes!("out/loadi.out");
 
     let mut asm = Assembler::default();
 
@@ -115,7 +115,7 @@ fn loadi() {
 
 #[test]
 fn load() {
-    let expected_bytes = include_bytes!("load.out");
+    let expected_bytes = include_bytes!("out/load.out");
 
     let mut asm = Assembler::default();
 
@@ -130,7 +130,7 @@ fn load() {
 
 #[test]
 fn store() {
-    let expected_bytes = include_bytes!("store.out");
+    let expected_bytes = include_bytes!("out/store.out");
 
     let mut asm = Assembler::default();
 
@@ -144,7 +144,7 @@ fn store() {
 }
 #[test]
 fn mov() {
-    let expected_bytes = include_bytes!("mov.out");
+    let expected_bytes = include_bytes!("out/mov.out");
 
     let mut asm = Assembler::default();
 
@@ -159,7 +159,7 @@ fn mov() {
 
 #[test]
 fn push() {
-    let expected_bytes = include_bytes!("push.out");
+    let expected_bytes = include_bytes!("out/push.out");
 
     let mut asm = Assembler::default();
 
@@ -172,7 +172,7 @@ fn push() {
 
 #[test]
 fn pop() {
-    let expected_bytes = include_bytes!("pop.out");
+    let expected_bytes = include_bytes!("out/pop.out");
 
     let mut asm = Assembler::default();
 
@@ -185,7 +185,7 @@ fn pop() {
 
 #[test]
 fn add() {
-    let expected_bytes = include_bytes!("add.out");
+    let expected_bytes = include_bytes!("out/add.out");
 
     let mut asm = Assembler::default();
 
@@ -200,7 +200,7 @@ fn add() {
 
 #[test]
 fn addi() {
-    let expected_bytes = include_bytes!("addi.out");
+    let expected_bytes = include_bytes!("out/addi.out");
 
     let mut asm = Assembler::default();
 
@@ -212,8 +212,25 @@ fn addi() {
 }
 
 #[test]
+fn slt() {
+    let expected_bytes = include_bytes!("out/slt.out");
+
+    let mut asm = Assembler::default();
+
+    for src1 in REGISTERS {
+        for src2 in REGISTERS {
+            for dst in REGISTERS {
+                asm.assemble_instruction(code!(slt { src1 }, { src2 }, { dst }));
+            }
+        }
+    }
+
+    compare(expected_bytes, asm.emit_code().as_slice());
+}
+
+#[test]
 fn jmp() {
-    let expected_bytes = include_bytes!("jmp.out");
+    let expected_bytes = include_bytes!("out/jmp.out");
 
     let mut asm = Assembler::default();
 
@@ -224,45 +241,13 @@ fn jmp() {
 }
 
 #[test]
-fn je() {
-    let expected_bytes = include_bytes!("je.out");
+fn jz() {
+    let expected_bytes = include_bytes!("out/jz.out");
 
     let mut asm = Assembler::default();
 
-    for reg1 in REGISTERS {
-        for reg2 in REGISTERS {
-            asm.assemble_instruction(code!(je { reg1 }, { reg2 }, { DEADBEEF32 }));
-        }
-    }
-
-    compare(expected_bytes, asm.emit_code().as_slice());
-}
-
-#[test]
-fn jl() {
-    let expected_bytes = include_bytes!("jl.out");
-
-    let mut asm = Assembler::default();
-
-    for reg1 in REGISTERS {
-        for reg2 in REGISTERS {
-            asm.assemble_instruction(code!(jl { reg1 }, { reg2 }, { DEADBEEF32 }));
-        }
-    }
-
-    compare(expected_bytes, asm.emit_code().as_slice());
-}
-
-#[test]
-fn jg() {
-    let expected_bytes = include_bytes!("jg.out");
-
-    let mut asm = Assembler::default();
-
-    for reg1 in REGISTERS {
-        for reg2 in REGISTERS {
-            asm.assemble_instruction(code!(jg { reg1 }, { reg2 }, { DEADBEEF32 }));
-        }
+    for reg in REGISTERS {
+        asm.assemble_instruction(code!(jz { reg }, { DEADBEEF32 }));
     }
 
     compare(expected_bytes, asm.emit_code().as_slice());
@@ -270,7 +255,7 @@ fn jg() {
 
 #[test]
 fn ret() {
-    let expected_bytes = include_bytes!("ret.out");
+    let expected_bytes = include_bytes!("out/ret.out");
 
     let mut asm = Assembler::default();
 
@@ -281,7 +266,7 @@ fn ret() {
 
 #[test]
 fn call() {
-    let expected_bytes = include_bytes!("call.out");
+    let expected_bytes = include_bytes!("out/call.out");
 
     let mut asm = Assembler::default();
 
