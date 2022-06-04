@@ -3,9 +3,9 @@ use crate::mir::{Local, Ty};
 use std::collections::BTreeMap;
 
 pub struct Function {
-    args_len: usize,
-    basic_blocks: BTreeMap<BasicBlockId, BasicBlock>,
-    local_types: BTreeMap<Local, Ty>,
+    pub args_len: usize,
+    pub basic_blocks: BTreeMap<BasicBlockId, BasicBlock>,
+    pub local_types: BTreeMap<Local, Ty>,
 }
 
 impl Function {

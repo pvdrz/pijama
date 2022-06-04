@@ -35,7 +35,7 @@ macro_rules! instruction_kind {
         $crate::asm::InstructionKind::LoadImm {
             src: $imm64,
             dst: $crate::reg!($($reg)+),
-        };
+        }
     };
     (load {$($addr:tt)+}+{$imm32:expr},{$($reg:tt)+}) => {
         $crate::asm::InstructionKind::LoadAddr {

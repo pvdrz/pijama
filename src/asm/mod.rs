@@ -7,7 +7,7 @@ pub type Imm32 = i32;
 pub type Imm64 = i64;
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Register {
     Ax = 0,
     Cx = 1,

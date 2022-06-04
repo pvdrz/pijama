@@ -3,10 +3,10 @@ mod func;
 mod statement;
 mod terminator;
 
-pub use func::Function;
 pub use bb::{BasicBlock, BasicBlockId};
-pub use terminator::Terminator;
+pub use func::Function;
 pub use statement::Statement;
+pub use terminator::Terminator;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Local(usize);
@@ -33,7 +33,7 @@ pub enum Operand {
 
 #[derive(Clone)]
 pub struct Literal {
-    pub data: u64,
+    pub data: u32,
     pub ty: Ty,
 }
 

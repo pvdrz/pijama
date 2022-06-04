@@ -23,7 +23,7 @@ fn duplicate_mir() -> Function {
     let bb2 = builder.add_block();
     let bb3 = builder.add_block();
 
-    const fn int(data: u64) -> Operand {
+    const fn int(data: u32) -> Operand {
         Operand::Constant(Literal { data, ty: Ty::Int })
     }
 
@@ -80,8 +80,7 @@ fn duplicate_mir() -> Function {
     });
 
     *builder.block_mut(bb3) = Some(BasicBlock {
-        statements: vec![
-        ],
+        statements: vec![],
         terminator: Terminator::Return,
     });
 
@@ -102,23 +101,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
     asm.assemble_instruction(code!(ret));
     add_function(&mut obj, section, b"start", &asm.emit_code());
 
-    let mut asm = Assembler::default();
-    let end = asm.add_label();
-    let cmp = asm.add_label();
-
-    asm.assemble_instruction(code! {      loadi {0x0},{rax} });
-    asm.assemble_instruction(code! {      loadi {0x0},{rdx} });
-
-    asm.assemble_instruction(code! { cmp: slt {rdx},{rdi},{rcx} });
-    asm.assemble_instruction(code! {      jz  {rcx}, {end} });
-
-    asm.assemble_instruction(code! {      addi {0x2},{rax} });
-    asm.assemble_instruction(code! {      addi {0x1},{rdx} });
-    asm.assemble_instruction(code! {      jmp  {cmp} });
-
-    asm.assemble_instruction(code! { end: ret });
-
-    add_function(&mut obj, section, b"duplicate", &asm.emit_code());
+    let duplicate_code = pijama::mir_lowering::lower_function(&duplicate_mir());
+    add_function(&mut obj, section, b"duplicate", &duplicate_code);
 
     // Write the object file.
     obj.write_stream(file)?;

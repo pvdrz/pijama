@@ -1213,6 +1213,10 @@ Operands are basically values. We have two kinds of them, constants and locals:
 OPERAND ::= CONSTANT | LOCAL
 ```
 
+We can think that constants are a sequence of bytes tagged with a type. For now
+we will only consider 32-bit signed integers and booleans for now, which allows
+us to restrict the byte sequence's length to four.
+
 Which bring us back to locals, which are values local to a function, we can
 think them as the state of the function and they are shared between blocks.
 Following Rust's convention, the first local (usually denoted `_0`) stores the
@@ -1258,12 +1262,161 @@ locals: `_2` which holds the `i` variable, and `_3` which holds the result of
 the comparison. However, it's structure is pretty similar to the assembly we
 wrote before.
 
-Most of the elements of this representation translate directly to our assembly:
-Constants can be lowered to immediates, block identifiers map to labels, all
-terminators can be written using `ret`, `jz` and `jmp`, assignments can be
-written using `mov`, `loadi`, `add` and `stl`. However, locals don't translate
-directly to registers because we can have more locals than physical registers.
-This means that a single register could be used to store different locals or
-that some locals are stored in the stack. This process of assigning registers
-is known as register allocation. For now, we will shove this problem under the
-rug and assume that we can fit all locals in registers.
+### Lowering to assembly
+
+We could naively think that most of the elements of this representation
+translate easily to our assembly. But we will discover quickly that there are
+some details we need to take care of.
+
+#### Lowering constants
+
+We will start by the easiest construct which is constants. As we said before,
+constants are a sequence of bytes tagged with a type.
+
+Regardless of the type we can interpret the bytes of the constant as an
+`imm32`. To avoid any issue with booleans we will asume that zero represents
+`false` and any other value represents `true`.
+
+If we were to support constants like 64-bit integers we would have to do
+several special cases because `x86` does not allow 64-bit immediates for most
+instructions.
+
+#### Lowering locals
+
+Locals are a bit more interesting because we could have more locals than
+physical registers. The elegant solution to this issue is assigning each local
+to a register temporarily, once the local is no longer used, the register is
+freed and can be used for other local. However, it could happen that all
+registers are being used while trying to assign a register to a local. In that
+case, locals are "spilled" on to the stack. This whole process is known as
+register allocation.
+
+For now, we will do a very naive register allocation and assume that we always
+have enough registers, later we will do something smarter. Even in this simple
+scenario we must be careful about which registers can we assign to each local.
+
+Thanks to the System V calling convention, we know that the return value must
+go in the `rax` register, so we will assign `rax` to the `_0` local. We also
+know that registers `rdi`, `rsi`, `rdx` and `rcx` hold the function's
+parameters, at the same time the registers `rbx`, `rsp` and `rbp` must be left in
+the same state as they were when calling the function (This is very important
+because `rsp` holds the stack pointer, among other stuff).
+
+So for our sake we won't touch the `rbx`, `rsp` and `rbp` registers for now.
+Instead we will assign the `rax`, `rdi`, `rsi`, `rdx` and `rcx` registers to
+the function's locals in that same order.
+
+The limitations of this allocation strategy are that we can only lower
+functions that have 4 or less parameters and that use 5 or less locals. Not
+ideal, but it is a start.
+
+#### Lowering terminators
+
+Given that terminators allow us to jump between basic blocks it is natural to
+assign each basic block identifier a label. This is pretty straightforward as
+we don't have any restriction in the number of labels or anything.
+
+If the terminator is `JUMP BB`, we lower it directly to the `jmp` instruction,
+mapping `BB` to its assigned label.
+
+If the terminator is `JUMP IF COND THEN THEN_BB ELSE ELSE_BB`. First, the
+`THEN_BB` and `ELSE_BB` identifiers are mapped into `then_label` and
+`else_label` respectively. Then, we lower the `COND` operand as we explained in
+the two previous sections. Given that we only have two kinds of operands, we
+have two cases:
+
+- If the operand was a local, it is mapped into a register `cond_reg`. Then we
+  lower the terminator as following:
+  ```asm
+  jz  cond_reg,else_label
+  jmp then_label
+  ```
+
+- If the operand was a constant, it is mapped into an immediate. We lower the
+  terminator as `jmp else_label` if the immediate is zero or as `jmp
+  then_label` otherwise.
+
+If the terminator is `RETURN` we lower it directly to the `ret` instruction.
+
+#### Lowering statements
+
+Finally, we have to figure out how to lower assignments. This is the trickiest
+part because we need to consider every possible combination of operands for the
+right hand side of the assignment. The left hand side is always a local, so we
+can map it directly to a register `reg_lhs`.
+
+If the rvalue is `USE operand`, we lower `operand` and operate based on the
+lowering output:
+
+- If we get a register `reg_op`, then we are moving the value stored in
+  `reg_op` to `reg_lhs`. Then we lower this as `mov reg_op,reg_lhs`.
+
+- If we get an immediate `imm_op`, then we lower this as `loadi
+  imm_op,reg_lhs`.
+
+If the `rvalue` is `op1 BINOP op2`, we lower `op1` and `op2` and operate based
+in both outputs.
+
+If we get two registers `reg_op1` and `reg_op2` respectively, we choose
+instructions based on `BINOP`:
+
+If it is `+` then we are storing the result of `reg_op1 + reg_op2` into
+`reg_lhs`. Given that we cannot do this in a single instruction we must be
+careful to not overwrite registers by accident. To handle this, we compare
+`reg_lhs` against `reg_op1` and `reg_op2`:
+
+- If `reg_lhs` is equal to `reg_op1`, then we are trying to do `reg_lhs =
+  reg_lhs + reg_op2`. Which is the same as `reg_lhs += reg_op2`, meaning that
+  we lower the whole statement as:
+  ```asm
+  add reg_op2,reg_lhs
+  ```
+
+- If `reg_lhs` is equal to `reg_op2`, we are trying to do `reg_lhs = reg_op1 +
+  reg_lhs`. Assuming that addition is commutative (is it?) we can do `regh_lhs
+  += reg_op1` and lower the statement as:
+  ```asm
+  add reg_op1,reg_lhs
+  ```
+
+- Otherwise, we know that `reg_lhs` is neither `reg_op1` nor `reg_op2`. Then we
+  can overwrite `reg_lhs` with the contents of `reg_op1` and then add
+  `reg_op2`:
+  ```asm
+  mov reg_op1,reg_lhs
+  add reg_op2,reg_lhs
+  ```
+
+If `BINOP` is `<`, we can use the `slt` instruction directly: `slt
+reg_op1,reg_op2,reg_lhs`.
+
+We have other three cases to handle but we can easily choose instructions for
+all of them with the same strategy we used in this first case, except for when
+`BINOP` is `<` and one of the operands is lowered as an immediate because we
+don't have a "Set If Less Than Immediate" instruction in our assembly. We will
+leave a `todo!()` for those cases and go back to them later.
+
+If we did everything correctly, we can lower the MIR for the `duplicate`
+function and emit the following code:
+
+```objdump
+0000000000000010 <duplicate>:
+  10:   48 b8 00 00 00 00 00 00 00 00   movabs rax,0x0
+  1a:   48 be 00 00 00 00 00 00 00 00   movabs rsi,0x0
+  24:   e9 00 00 00 00          jmp    29 <duplicate+0x19>
+  29:   48 39 fe                cmp    rsi,rdi
+  2c:   48 ba 00 00 00 00 00 00 00 00   movabs rdx,0x0
+  36:   0f 9c c2                setl   dl
+  39:   48 81 fa 00 00 00 00    cmp    rdx,0x0
+  40:   0f 84 17 00 00 00       je     5d <duplicate+0x4d>
+  46:   e9 00 00 00 00          jmp    4b <duplicate+0x3b>
+  4b:   48 05 02 00 00 00       add    rax,0x2
+  51:   48 81 c6 01 00 00 00    add    rsi,0x1
+  58:   e9 cc ff ff ff          jmp    29 <duplicate+0x19>
+  5d:   c3                      ret
+```
+
+It isn't the same assembly we wrote by hand before. The locations `24` and `46`
+have `jmp` instructions that jump to the next instruction which is semantically
+right but it is a bit wasteful. Nevertheless, if we link and run our main
+program we will get the same output as before.
