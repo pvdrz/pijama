@@ -1,48 +1,57 @@
 mod mod_rm;
 mod sib;
 
-use super::{Address, Imm32, Imm64, Instruction, InstructionKind, Label, Location, Register};
+use std::error::Error;
+use std::fmt;
+
+use crate::asm::x86_64::register::Register;
+use crate::asm::{
+    Address, Imm32, Imm64, Instruction, InstructionKind, Instructions, Label, Location,
+};
 use mod_rm::ModRmBuilder;
 use sib::{Scale, SibBuilder};
 
-const fn rex(w_bit: bool, r_bit: bool, b_bit: bool) -> u8 {
-    let mut prefix = 0b01000000;
+pub fn assemble(
+    instructions: Instructions<Register>,
+    buf: &mut Vec<u8>,
+) -> Result<(), AssemblerError> {
+    let mut asm = Assembler {
+        buf,
+        label_locations: vec![None; instructions.labels_len],
+        patches: Vec::with_capacity(instructions.labels_len),
+    };
 
-    if w_bit {
-        prefix |= 0b1000;
-    }
-    if r_bit {
-        prefix |= 0b100;
-    }
-    if b_bit {
-        prefix |= 0b1;
+    for instruction in instructions.instructions {
+        asm.assemble_instruction(instruction);
     }
 
-    prefix
+    asm.finish()
 }
 
-struct Patch {
-    label: Label,
-    start: usize,
+#[derive(Debug)]
+pub enum AssemblerError {
+    MissingLabelLocation(Label),
 }
 
-#[derive(Default)]
-pub struct Assembler {
-    buf: Vec<u8>,
-    label_locations: Vec<usize>,
+impl fmt::Display for AssemblerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingLabelLocation(label) => {
+                write!(f, "location of label {label:?} is missing")
+            }
+        }
+    }
+}
+
+impl Error for AssemblerError {}
+
+struct Assembler<'asm> {
+    buf: &'asm mut Vec<u8>,
+    label_locations: Vec<Option<usize>>,
     patches: Vec<Patch>,
 }
 
-impl Assembler {
-    /// Creates a new label, different from all the other labels created by this [`Assembler`].
-    pub fn add_label(&mut self) -> Label {
-        let label = Label(self.label_locations.len());
-
-        self.label_locations.push(usize::MAX);
-
-        label
-    }
-
+impl<'asm> Assembler<'asm> {
     /// Adds a new patch in the current location of the instruction pointer for a [`Label`]. This
     /// means that an [`Imm32`] with the location of the label will be written at the current
     /// location of the instruction pointer when calling [`Assembler::emit_code`].
@@ -58,9 +67,9 @@ impl Assembler {
     /// Assembles an instruction.
     ///
     /// If the instruction has a label, the previous location of the label will be overwritten.
-    pub fn assemble_instruction(&mut self, instruction: Instruction) {
+    pub fn assemble_instruction(&mut self, instruction: Instruction<Register>) {
         if let Some(label) = instruction.label {
-            self.label_locations[label.0] = self.buf.len();
+            self.label_locations[label.0] = Some(self.buf.len());
         }
 
         match instruction.kind {
@@ -91,7 +100,7 @@ impl Assembler {
         self.buf.extend_from_slice(&io);
     }
 
-    fn assemble_load_addr(&mut self, src: Address<Imm32>, dst: Register) {
+    fn assemble_load_addr(&mut self, src: Address<Imm32, Register>, dst: Register) {
         let rex_prefix = rex(true, false, false);
         let opcode = 0x8b;
         let mod_rm = ModRmBuilder::new()
@@ -116,7 +125,7 @@ impl Assembler {
         self.buf.extend_from_slice(&src.offset.to_le_bytes());
     }
 
-    fn assemble_store(&mut self, src: Register, dst: Address<Imm32>) {
+    fn assemble_store(&mut self, src: Register, dst: Address<Imm32, Register>) {
         let rex_prefix = rex(true, false, false);
         let opcode = 0x89;
         let mod_rm = ModRmBuilder::new()
@@ -288,12 +297,14 @@ impl Assembler {
         self.buf.extend_from_slice(&[opcode, mod_rm]);
     }
 
-    pub fn emit_code(mut self) -> Vec<u8> {
-        for patch in self.patches {
-            // The value to be patched is a `i32`.
+    pub fn finish(&mut self) -> Result<(), AssemblerError> {
+        for patch in &self.patches {
+            // The value to be patched is an `i32`.
             let patch_end = patch.start + std::mem::size_of::<i32>();
 
-            let mut label_location = self.label_locations[patch.label.0 as usize] as i32;
+            let mut label_location = self.label_locations[patch.label.0 as usize]
+                .ok_or_else(|| AssemblerError::MissingLabelLocation(patch.label))?
+                as i32;
             // The label location must be written relative to the end of the instruction which
             // matches the end of the patch.
             label_location -= patch_end as i32;
@@ -301,6 +312,27 @@ impl Assembler {
             self.buf[patch.start..patch_end].copy_from_slice(&label_location.to_le_bytes());
         }
 
-        self.buf
+        Ok(())
     }
+}
+
+const fn rex(w_bit: bool, r_bit: bool, b_bit: bool) -> u8 {
+    let mut prefix = 0b01000000;
+
+    if w_bit {
+        prefix |= 0b1000;
+    }
+    if r_bit {
+        prefix |= 0b100;
+    }
+    if b_bit {
+        prefix |= 0b1;
+    }
+
+    prefix
+}
+
+struct Patch {
+    label: Label,
+    start: usize,
 }

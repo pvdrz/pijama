@@ -4,11 +4,32 @@ use object::{
     write::{Object, SectionId, StandardSection, SymbolSection},
     Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope,
 };
-use pijama::asm::Assembler;
-use pijama::code;
+use pijama::asm::x86_64::assemble;
 use pijama::mir::{
     BasicBlock, BinOp, Function, Literal, Operand, Rvalue, Statement, Terminator, Ty,
 };
+
+const fn int(data: u32) -> Operand {
+    Operand::Constant(Literal { data, ty: Ty::Int })
+}
+
+fn start_mir() -> Function {
+    let mut builder = Function::builder(0);
+
+    let output = builder.add_local(Ty::Int);
+
+    let bb0 = builder.add_block();
+
+    *builder.block_mut(bb0) = Some(BasicBlock {
+        statements: vec![Statement::Assign {
+            lhs: output,
+            rhs: Rvalue::Use(int(10)),
+        }],
+        terminator: Terminator::Return,
+    });
+
+    builder.finish()
+}
 
 fn duplicate_mir() -> Function {
     let mut builder = Function::builder(1);
@@ -22,10 +43,6 @@ fn duplicate_mir() -> Function {
     let bb1 = builder.add_block();
     let bb2 = builder.add_block();
     let bb3 = builder.add_block();
-
-    const fn int(data: u32) -> Operand {
-        Operand::Constant(Literal { data, ty: Ty::Int })
-    }
 
     *builder.block_mut(bb0) = Some(BasicBlock {
         statements: vec![
@@ -96,12 +113,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
     // Create the `.text` section.
     let section = obj.section_id(StandardSection::Text);
 
-    let mut asm = Assembler::default();
-    asm.assemble_instruction(code!(loadi {0xa}, {rax}));
-    asm.assemble_instruction(code!(ret));
-    add_function(&mut obj, section, b"start", &asm.emit_code());
+    let mut start_code = Vec::new();
+    let start_instructions = pijama::mir_lowering::lower_function(&start_mir());
+    assemble(start_instructions, &mut start_code)?;
+    add_function(&mut obj, section, b"start", &start_code);
 
-    let duplicate_code = pijama::mir_lowering::lower_function(&duplicate_mir());
+    let mut duplicate_code = Vec::new();
+    let duplicate_instructions = pijama::mir_lowering::lower_function(&duplicate_mir());
+    assemble(duplicate_instructions, &mut duplicate_code)?;
     add_function(&mut obj, section, b"duplicate", &duplicate_code);
 
     // Write the object file.

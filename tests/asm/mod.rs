@@ -1,5 +1,8 @@
 use pijama::{
-    asm::{Assembler, Register},
+    asm::{
+        x86_64::{assemble, Register},
+        Instructions,
+    },
     code,
 };
 
@@ -104,175 +107,201 @@ fn compare(expected: &[u8], found: &[u8]) {
 fn loadi() {
     let expected_bytes = include_bytes!("out/loadi.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for dst in REGISTERS {
-        asm.assemble_instruction(code!(loadi { DEADBEEF64 }, { dst }));
+        instructions.add_instruction(code!(loadi { DEADBEEF64 }, { dst }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn load() {
     let expected_bytes = include_bytes!("out/load.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for base in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(code!(load { base } + { DEADBEEF32 }, { dst }));
+            instructions.add_instruction(code!(load { base } + { DEADBEEF32 }, { dst }));
         }
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn store() {
     let expected_bytes = include_bytes!("out/store.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for src in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(code!(store { src }, { dst } + { DEADBEEF32 }));
+            instructions.add_instruction(code!(store { src }, { dst } + { DEADBEEF32 }));
         }
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 #[test]
 fn mov() {
     let expected_bytes = include_bytes!("out/mov.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for src in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(code!(mov { src }, { dst }));
+            instructions.add_instruction(code!(mov { src }, { dst }));
         }
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn push() {
     let expected_bytes = include_bytes!("out/push.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(code!(push { reg }));
+        instructions.add_instruction(code!(push { reg }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn pop() {
     let expected_bytes = include_bytes!("out/pop.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(code!(pop { reg }));
+        instructions.add_instruction(code!(pop { reg }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn add() {
     let expected_bytes = include_bytes!("out/add.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for src in REGISTERS {
         for dst in REGISTERS {
-            asm.assemble_instruction(code!(add { src }, { dst }));
+            instructions.add_instruction(code!(add { src }, { dst }));
         }
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn addi() {
     let expected_bytes = include_bytes!("out/addi.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for dst in REGISTERS {
-        asm.assemble_instruction(code!(addi { DEADBEEF32 }, { dst }));
+        instructions.add_instruction(code!(addi { DEADBEEF32 }, { dst }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn slt() {
     let expected_bytes = include_bytes!("out/slt.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for src1 in REGISTERS {
         for src2 in REGISTERS {
             for dst in REGISTERS {
-                asm.assemble_instruction(code!(slt { src1 }, { src2 }, { dst }));
+                instructions.add_instruction(code!(slt { src1 }, { src2 }, { dst }));
             }
         }
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn jmp() {
     let expected_bytes = include_bytes!("out/jmp.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
-    asm.assemble_instruction(code!(jmp { DEADBEEF32 }));
-    asm.assemble_instruction(code!(jmp { DEADBEEF32 }));
+    instructions.add_instruction(code!(jmp { DEADBEEF32 }));
+    instructions.add_instruction(code!(jmp { DEADBEEF32 }));
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn jz() {
     let expected_bytes = include_bytes!("out/jz.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(code!(jz { reg }, { DEADBEEF32 }));
+        instructions.add_instruction(code!(jz { reg }, { DEADBEEF32 }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn ret() {
     let expected_bytes = include_bytes!("out/ret.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
-    asm.assemble_instruction(code!(ret));
+    instructions.add_instruction(code!(ret));
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }
 
 #[test]
 fn call() {
     let expected_bytes = include_bytes!("out/call.out");
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     for reg in REGISTERS {
-        asm.assemble_instruction(code!(call { reg }));
+        instructions.add_instruction(code!(call { reg }));
     }
 
-    compare(expected_bytes, asm.emit_code().as_slice());
+    let mut buf = Vec::new();
+    assemble(instructions, &mut buf).unwrap();
+    compare(expected_bytes, &buf);
 }

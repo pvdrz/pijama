@@ -1,28 +1,28 @@
 #[macro_export]
 macro_rules! reg {
     (rax) => {
-        $crate::asm::Register::Ax
+        $crate::asm::x86_64::Register::Ax
     };
     (rcx) => {
-        $crate::asm::Register::Cx
+        $crate::asm::x86_64::Register::Cx
     };
     (rdx) => {
-        $crate::asm::Register::Dx
+        $crate::asm::x86_64::Register::Dx
     };
     (rbx) => {
-        $crate::asm::Register::Bx
+        $crate::asm::x86_64::Register::Bx
     };
     (rsp) => {
-        $crate::asm::Register::Sp
+        $crate::asm::x86_64::Register::Sp
     };
     (rbp) => {
-        $crate::asm::Register::Bp
+        $crate::asm::x86_64::Register::Bp
     };
     (rsi) => {
-        $crate::asm::Register::Si
+        $crate::asm::x86_64::Register::Si
     };
     (rdi) => {
-        $crate::asm::Register::Di
+        $crate::asm::x86_64::Register::Di
     };
     ($expr:expr) => {
         $expr

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    asm::{Assembler, Imm32, Imm64, Instruction, Label, Register},
+    asm::{x86_64::Register, Imm32, Instruction, Instructions, Label},
     code,
     mir::{
         BasicBlock, BasicBlockId, BinOp, Function, Local, Operand, Rvalue, Statement, Terminator,
@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-pub fn lower_function(func: &Function) -> Vec<u8> {
+pub fn lower_function(func: &Function) -> Instructions<Register> {
     const AVAILABLE_REGISTERS: [Register; 5] = [
         Register::Ax,
         Register::Di,
@@ -29,7 +29,7 @@ pub fn lower_function(func: &Function) -> Vec<u8> {
         );
     }
 
-    let mut asm = Assembler::default();
+    let mut instructions = Instructions::new();
 
     let local_registers = func
         .local_types
@@ -42,21 +42,20 @@ pub fn lower_function(func: &Function) -> Vec<u8> {
         .basic_blocks
         .keys()
         .copied()
-        .map(|label| (label, asm.add_label()))
+        .map(|label| (label, instructions.add_label()))
         .collect();
 
     let mut ctx = LowerCtx {
         local_registers,
         block_labels,
-        instructions: Vec::new(),
-        asm,
+        instructions,
     };
 
     for (bb, bb_data) in &func.basic_blocks {
         ctx.lower_block(*bb, bb_data);
     }
 
-    ctx.asm.emit_code()
+    ctx.instructions
 }
 
 enum AsmOperand {
@@ -67,8 +66,7 @@ enum AsmOperand {
 struct LowerCtx {
     local_registers: BTreeMap<Local, Register>,
     block_labels: BTreeMap<BasicBlockId, Label>,
-    instructions: Vec<Instruction>,
-    asm: Assembler,
+    instructions: Instructions<Register>,
 }
 
 impl LowerCtx {
@@ -86,25 +84,23 @@ impl LowerCtx {
         match terminator {
             Terminator::Jump(ref bb) => self
                 .instructions
-                .push(code!( jmp { self.block_labels[bb] } )),
-            Terminator::Return => self.instructions.push(code! { ret }),
+                .add_instruction(code!( jmp { self.block_labels[bb] } )),
+            Terminator::Return => self.add_instruction(code! { ret }),
             Terminator::JumpIf {
                 ref cond,
                 ref then_bb,
                 ref else_bb,
             } => match self.lower_operand(cond) {
                 AsmOperand::Reg(cond) => {
-                    self.instructions
-                        .push(code!(jz { cond }, { self.block_labels[else_bb] }));
-                    self.instructions
-                        .push(code!(jmp { self.block_labels[then_bb] }));
+                    self.add_instruction(code!(jz { cond }, { self.block_labels[else_bb] }));
+                    self.add_instruction(code!(jmp { self.block_labels[then_bb] }));
                 }
                 AsmOperand::Imm32(cond) => {
                     let bb = match cond {
                         0 => else_bb,
                         _ => then_bb,
                     };
-                    self.instructions.push(code!(jmp { self.block_labels[bb] }))
+                    self.add_instruction(code!(jmp { self.block_labels[bb] }))
                 }
             },
         }
@@ -117,9 +113,9 @@ impl LowerCtx {
 
                 match rhs {
                     Rvalue::Use(ref operand) => match self.lower_operand(operand) {
-                        AsmOperand::Reg(rhs) => self.instructions.push(code!(mov { rhs }, { lhs })),
+                        AsmOperand::Reg(rhs) => self.add_instruction(code!(mov { rhs }, { lhs })),
                         AsmOperand::Imm32(rhs) => {
-                            self.instructions.push(code!(loadi { rhs.into() }, { lhs }))
+                            self.add_instruction(code!(loadi { rhs.into() }, { lhs }))
                         }
                     },
                     Rvalue::BinaryOp {
@@ -131,30 +127,29 @@ impl LowerCtx {
                             BinOp::Add => {
                                 if lhs == lhs_op {
                                     // lhs = lhs + rhs_op -> lhs += rhs_op
-                                    self.instructions.push(code!(add { rhs_op }, { lhs }));
+                                    self.add_instruction(code!(add { rhs_op }, { lhs }));
                                 } else if lhs == rhs_op {
                                     // lhs = lhs_op + lhs -> lhs += lhs_op
-                                    self.instructions.push(code!(add { lhs_op }, { lhs }));
+                                    self.add_instruction(code!(add { lhs_op }, { lhs }));
                                 } else {
                                     // lhs = lhs_op + rhs_op -> lhs = lhs_op; lhs += rhs_op
-                                    self.instructions.push(code!(mov { lhs_op }, { lhs }));
-                                    self.instructions.push(code!(add { rhs_op }, { lhs }));
+                                    self.add_instruction(code!(mov { lhs_op }, { lhs }));
+                                    self.add_instruction(code!(add { rhs_op }, { lhs }));
                                 }
                             }
                             BinOp::Lt => {
-                                self.instructions
-                                    .push(code!(slt { lhs_op }, { rhs_op }, { lhs }))
+                                self.add_instruction(code!(slt { lhs_op }, { rhs_op }, { lhs }))
                             }
                         },
                         (AsmOperand::Reg(lhs_op), AsmOperand::Imm32(rhs_op)) => match op {
                             BinOp::Add => {
                                 if lhs == lhs_op {
                                     // lhs = lhs + rhs_op -> lhs += rhs_op
-                                    self.instructions.push(code!(addi { rhs_op }, { lhs }));
+                                    self.add_instruction(code!(addi { rhs_op }, { lhs }));
                                 } else {
                                     // lhs = lhs_op + rhs_op -> lhs = lhs_op; lhs += rhs_op
-                                    self.instructions.push(code!(mov { lhs_op }, { lhs }));
-                                    self.instructions.push(code!(addi { rhs_op }, { lhs }));
+                                    self.add_instruction(code!(mov { lhs_op }, { lhs }));
+                                    self.add_instruction(code!(addi { rhs_op }, { lhs }));
                                 }
                             }
                             BinOp::Lt => todo!(),
@@ -163,12 +158,11 @@ impl LowerCtx {
                             BinOp::Add => {
                                 if lhs == rhs_op {
                                     // lhs = lhs_op + lhs -> lhs += lhs_op
-                                    self.instructions.push(code!(addi { lhs_op }, { lhs }));
+                                    self.add_instruction(code!(addi { lhs_op }, { lhs }));
                                 } else {
                                     // lhs = lhs_op + rhs_op -> lhs = lhs_op; lhs += rhs_op
-                                    self.instructions
-                                        .push(code!(loadi { lhs_op.into() }, { lhs }));
-                                    self.instructions.push(code!(add { rhs_op }, { lhs }));
+                                    self.add_instruction(code!(loadi { lhs_op.into() }, { lhs }));
+                                    self.add_instruction(code!(add { rhs_op }, { lhs }));
                                 }
                             }
                             BinOp::Lt => todo!(),
@@ -176,13 +170,12 @@ impl LowerCtx {
                         (AsmOperand::Imm32(lhs_op), AsmOperand::Imm32(rhs_op)) => match op {
                             BinOp::Add => {
                                 // lhs = lhs_op + rhs_op -> lhs = lhs_op; lhs += rhs_op
-                                self.instructions
-                                    .push(code!(loadi { lhs_op.into() }, { lhs }));
-                                self.instructions.push(code!(addi { rhs_op }, { lhs }));
+                                self.add_instruction(code!(loadi { lhs_op.into() }, { lhs }));
+                                self.add_instruction(code!(addi { rhs_op }, { lhs }));
                             }
                             BinOp::Lt => {
                                 let imm = if lhs_op < rhs_op { 1 } else { 0 };
-                                self.instructions.push(code!(loadi { imm }, { lhs }));
+                                self.add_instruction(code!(loadi { imm }, { lhs }));
                             }
                         },
                     },
@@ -192,18 +185,20 @@ impl LowerCtx {
     }
 
     fn lower_block(&mut self, bb: BasicBlockId, bb_data: &BasicBlock) {
+        let index = self.instructions.len();
+
         for statement in &bb_data.statements {
             self.lower_statement(statement);
         }
 
         self.lower_terminator(&bb_data.terminator);
 
-        if let Some(instruction) = self.instructions.first_mut() {
+        if let Some(instruction) = self.instructions.get_mut(index) {
             instruction.label = Some(self.block_labels[&bb]);
         }
+    }
 
-        for instruction in self.instructions.drain(..) {
-            self.asm.assemble_instruction(instruction);
-        }
+    fn add_instruction(&mut self, instruction: Instruction<Register>) {
+        self.instructions.add_instruction(instruction)
     }
 }

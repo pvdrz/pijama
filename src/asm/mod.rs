@@ -1,68 +1,29 @@
-mod assembler;
 mod macros;
-
-pub use assembler::Assembler;
+pub mod portable;
+pub mod x86_64;
 
 pub type Imm32 = i32;
 pub type Imm64 = i64;
 
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Register {
-    Ax = 0,
-    Cx = 1,
-    Dx = 2,
-    Bx = 3,
-    Sp = 4,
-    Bp = 5,
-    Si = 6,
-    Di = 7,
-}
-
-pub struct Address<I> {
-    pub base: Register,
+pub struct Address<I, R> {
+    pub base: R,
     pub offset: I,
 }
 
-pub enum InstructionKind {
-    LoadImm {
-        src: Imm64,
-        dst: Register,
-    },
-    LoadAddr {
-        src: Address<Imm32>,
-        dst: Register,
-    },
-    Store {
-        src: Register,
-        dst: Address<Imm32>,
-    },
-    Mov {
-        src: Register,
-        dst: Register,
-    },
-    Push(Register),
-    Pop(Register),
-    Add {
-        src: Register,
-        dst: Register,
-    },
-    AddImm {
-        src: Imm32,
-        dst: Register,
-    },
-    SetIfLess {
-        src1: Register,
-        src2: Register,
-        dst: Register,
-    },
+pub enum InstructionKind<R> {
+    LoadImm { src: Imm64, dst: R },
+    LoadAddr { src: Address<Imm32, R>, dst: R },
+    Store { src: R, dst: Address<Imm32, R> },
+    Mov { src: R, dst: R },
+    Push(R),
+    Pop(R),
+    Add { src: R, dst: R },
+    AddImm { src: Imm32, dst: R },
+    SetIfLess { src1: R, src2: R, dst: R },
     Jump(Location),
-    JumpIfZero {
-        src: Register,
-        target: Location,
-    },
+    JumpIfZero { src: R, target: Location },
     Return,
-    Call(Register),
+    Call(R),
 }
 
 pub enum Location {
@@ -82,10 +43,44 @@ impl From<Label> for Location {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Label(usize);
 
-pub struct Instruction {
+#[derive(Default)]
+struct LabelGenerator(usize);
+
+pub struct Instruction<R> {
     pub label: Option<Label>,
-    pub kind: InstructionKind,
+    pub kind: InstructionKind<R>,
+}
+
+pub struct Instructions<R> {
+    instructions: Vec<Instruction<R>>,
+    labels_len: usize,
+}
+
+impl<R> Instructions<R> {
+    pub fn new() -> Self {
+        Self {
+            instructions: Vec::new(),
+            labels_len: 0,
+        }
+    }
+    pub fn add_label(&mut self) -> Label {
+        let label = Label(self.labels_len);
+        self.labels_len += 1;
+        label
+    }
+
+    pub fn add_instruction(&mut self, instruction: Instruction<R>) {
+        self.instructions.push(instruction)
+    }
+
+    pub fn len(&self) -> usize {
+        self.instructions.len()
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Instruction<R>> {
+        self.instructions.get_mut(index)
+    }
 }

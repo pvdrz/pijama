@@ -1411,3 +1411,18 @@ It isn't the same assembly we wrote by hand before. The locations `24` and `46`
 have `jmp` instructions that jump to the next instruction which is semantically
 right but it is a bit wasteful. Nevertheless, if we link and run our main
 program we will get the same output as before.
+
+# Optimizing code generation
+
+At this point you should have noticed that even though our code generation
+works, the generated code could be improved by either removing instructions or
+changing them by other instructions.
+
+This means that we should try to first generate the instructions we are trying
+to encode in a first stage and then emit machine code based on those
+instructions in a second pass.
+
+Another advantage of doing this is that it allows us to make our assembly
+portable. The only platform specific part of it are the registers, so that
+means that we can make our instructions generic over the type of registers we
+are going to use.
