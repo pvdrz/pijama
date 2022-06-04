@@ -1529,3 +1529,18 @@ After this optimization, the emmited code should be:
 
 To optimize `slt reg1,reg2,reg3` we will do it by putting `mov` before `cmp` if
 `reg3` is not equal to `reg1` or `reg2`.
+
+```objdump
+0000000000000010 <duplicate>:
+  10:   48 31 c0                xor    rax,rax
+  13:   48 31 f6                xor    rsi,rsi
+  16:   48 31 d2                xor    rdx,rdx
+  19:   48 39 fe                cmp    rsi,rdi
+  1c:   0f 9c c2                setl   dl
+  1f:   48 81 fa 00 00 00 00    cmp    rdx,0x0
+  26:   0f 84 12 00 00 00       je     3e <duplicate+0x2e>
+  2c:   48 05 02 00 00 00       add    rax,0x2
+  32:   48 81 c6 01 00 00 00    add    rsi,0x1
+  39:   e9 d8 ff ff ff          jmp    16 <duplicate+0x6>
+  3e:   c3                      ret
+```
