@@ -1253,13 +1253,13 @@ locals: `_2` which holds the `i` variable, and `_3` which holds the result of
 the comparison. However, it's structure is pretty similar to the assembly we
 wrote before.
 
-### Lowering to assembly
+## Lowering to assembly
 
 We could naively think that most of the elements of this representation
 translate easily to our assembly. But we will discover quickly that there are
 some details we need to take care of.
 
-#### Lowering constants
+### Lowering constants
 
 We will start by the easiest construct which is constants. As we said before,
 constants are a sequence of bytes tagged with a type.
@@ -1272,7 +1272,7 @@ If we were to support constants like 64-bit integers we would have to do
 several special cases because `x86` does not allow 64-bit immediates for most
 instructions.
 
-#### Lowering locals
+### Lowering locals
 
 Locals are a bit more interesting because we could have more locals than
 physical registers. The elegant solution to this issue is assigning each local
@@ -1301,7 +1301,7 @@ The limitations of this allocation strategy are that we can only lower
 functions that have 4 or less parameters and that use 5 or less locals. Not
 ideal, but it is a start.
 
-#### Lowering terminators
+### Lowering terminators
 
 Given that terminators allow us to jump between basic blocks it is natural to
 assign each basic block identifier a label. This is pretty straightforward as
@@ -1329,7 +1329,7 @@ have two cases:
 
 If the terminator is `RETURN` we lower it directly to the `ret` instruction.
 
-#### Lowering statements
+### Lowering statements
 
 Finally, we have to figure out how to lower assignments. This is the trickiest
 part because we need to consider every possible combination of operands for the
