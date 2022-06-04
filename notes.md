@@ -38,12 +38,12 @@ From the output we can see that the assembly code for `start` is stored in a
 Disassembly of section .text:
 
 0000000000000000 <start>:
-   0:	55                   	push   rbp
-   1:	48 89 e5             	mov    rbp,rsp
-   4:	b8 0a 00 00 00       	mov    eax,0xa
-   9:	5d                   	pop    rbp
-   a:	c3                   	ret
-   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+   0:    55                       push   rbp
+   1:    48 89 e5                 mov    rbp,rsp
+   4:    b8 0a 00 00 00           mov    eax,0xa
+   9:    5d                       pop    rbp
+   a:    c3                       ret
+   b:    0f 1f 44 00 00           nop    DWORD PTR [rax+rax*1+0x0]
 ```
 
 Even better we even have the actual machine code for `start` on the second
@@ -162,21 +162,21 @@ section:
 Disassembly of section .text:
 
 0000000000000000 <start>:
-   0:	55                   	push   rbp
-   1:	48 89 e5             	mov    rbp,rsp
-   4:	b8 0a 00 00 00       	mov    eax,0xa
-   9:	5d                   	pop    rbp
-   a:	c3                   	ret
-   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+   0:    55                       push   rbp
+   1:    48 89 e5                 mov    rbp,rsp
+   4:    b8 0a 00 00 00           mov    eax,0xa
+   9:    5d                       pop    rbp
+   a:    c3                       ret
+   b:    0f 1f 44 00 00           nop    DWORD PTR [rax+rax*1+0x0]
 
 0000000000000010 <duplicate>:
-  10:	55                   	push   rbp
-  11:	48 89 e5             	mov    rbp,rsp
-  14:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
-  17:	8b 45 fc             	mov    eax,DWORD PTR [rbp-0x4]
-  1a:	c1 e0 01             	shl    eax,0x1
-  1d:	5d                   	pop    rbp
-  1e:	c3                   	ret
+  10:    55                       push   rbp
+  11:    48 89 e5                 mov    rbp,rsp
+  14:    89 7d fc                 mov    DWORD PTR [rbp-0x4],edi
+  17:    8b 45 fc                 mov    eax,DWORD PTR [rbp-0x4]
+  1a:    c1 e0 01                 shl    eax,0x1
+  1d:    5d                       pop    rbp
+  1e:    c3                       ret
 ```
 
 And here is the symbol table:
@@ -238,12 +238,12 @@ As an example, let's take a look at the `mov` instruction inside the `start`
 function at position `1`:
 ```objdump
 0000000000000000 <start>:
-   0:	55                   	push   rbp
-   1:	48 89 e5             	mov    rbp,rsp
-   4:	b8 0a 00 00 00       	mov    eax,0xa
-   9:	5d                   	pop    rbp
-   a:	c3                   	ret
-   b:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+   0:    55                       push   rbp
+   1:    48 89 e5                 mov    rbp,rsp
+   4:    b8 0a 00 00 00           mov    eax,0xa
+   9:    5d                       pop    rbp
+   a:    c3                       ret
+   b:    0f 1f 44 00 00           nop    DWORD PTR [rax+rax*1+0x0]
 ```
 The machine code is `48 89 e5` and the instruction is `mov rbp,rsp`.
 
@@ -406,11 +406,11 @@ These are the instructions that we will use taken from the Intel's manual:
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 0F 9C     │ SETL r/m8        │ M     │ Set byte if less.                                     │
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 3D id 	│ CMP RAX,imm32    │ I     │ Compare imm32 sign-extended to 64-bits with RAX.      │
+│ REX.W + 3D id     │ CMP RAX,imm32    │ I     │ Compare imm32 sign-extended to 64-bits with RAX.      │
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ REX.W + 39 /r     │ CMP r/m64,r64    │ MR    │ Compare r64 with r/m64.                               │
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
-│ REX.W + 81 /7 id 	│ CMP r/m64,imm32  │ MI    │ Compare imm32 sign-extended to 64-bits with r/m64.    │
+│ REX.W + 81 /7 id  │ CMP r/m64,imm32  │ MI    │ Compare imm32 sign-extended to 64-bits with r/m64.    │
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
 │ E9 cd             │ JMP rel32        │ M     │ Jump near, displacement relative to next instruction. │
 ├───────────────────┼──────────────────┼───────┼───────────────────────────────────────────────────────┤
