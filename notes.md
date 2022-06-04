@@ -1457,3 +1457,20 @@ bar: mov rax,rcx
 
 And then, when labels are solved `foo` and `bar` will point to the same
 location.
+
+If we did everything correctly, the generated code for `duplicate` should look
+like:
+```objdump
+0000000000000010 <duplicate>:
+  10:   48 b8 00 00 00 00 00 00 00 00   movabs rax,0x0
+  1a:   48 be 00 00 00 00 00 00 00 00   movabs rsi,0x0
+  24:   48 39 fe                cmp    rsi,rdi
+  27:   48 ba 00 00 00 00 00 00 00 00   movabs rdx,0x0
+  31:   0f 9c c2                setl   dl
+  34:   48 81 fa 00 00 00 00    cmp    rdx,0x0
+  3b:   0f 84 12 00 00 00       je     53 <duplicate+0x43>
+  41:   48 05 02 00 00 00       add    rax,0x2
+  47:   48 81 c6 01 00 00 00    add    rsi,0x1
+  4e:   e9 d1 ff ff ff          jmp    24 <duplicate+0x14>
+  53:   c3                      ret
+```
