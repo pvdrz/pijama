@@ -1,15 +1,15 @@
 BITS 64
 
-%macro jz 2
+%macro jz 1
     cmp %1,qword 0x0
-    je  %2
+    je  0x0
 %endmacro
 
-jz rax,-0x21524111
-jz rcx,-0x21524111
-jz rdx,-0x21524111
-jz rbx,-0x21524111
-jz rsp,-0x21524111
-jz rbp,-0x21524111
-jz rsi,-0x21524111
-jz rdi,-0x21524111
+jz rax
+jz rcx
+jz rdx
+jz rbx
+jz rsp
+jz rbp
+jz rsi
+jz rdi

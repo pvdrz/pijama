@@ -1,4 +1,5 @@
 mod macros;
+mod optimize;
 pub mod portable;
 pub mod x86_64;
 
@@ -20,30 +21,14 @@ pub enum InstructionKind<R> {
     Add { src: R, dst: R },
     AddImm { src: Imm32, dst: R },
     SetIfLess { src1: R, src2: R, dst: R },
-    Jump(Location),
-    JumpIfZero { src: R, target: Location },
+    Jump(Label),
+    JumpIfZero { src: R, target: Label },
     Return,
     Call(R),
+    Nop,
 }
 
-pub enum Location {
-    Imm32(Imm32),
-    Label(Label),
-}
-
-impl From<Imm32> for Location {
-    fn from(value: Imm32) -> Self {
-        Self::Imm32(value)
-    }
-}
-
-impl From<Label> for Location {
-    fn from(label: Label) -> Self {
-        Self::Label(label)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Label(usize);
 
 #[derive(Default)]

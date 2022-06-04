@@ -187,13 +187,19 @@ asm_test!(slt, |instructions: &mut Instructions<Register>| {
 });
 
 asm_test!(jmp, |instructions: &mut Instructions<Register>| {
-    instructions.add_instruction(code!(jmp { DEADBEEF32 }));
-    instructions.add_instruction(code!(jmp { DEADBEEF32 }));
+    let lbl = instructions.add_label();
+
+    instructions.add_instruction(code!(lbl: nop));
+    instructions.add_instruction(code!(jmp { lbl }));
+    instructions.add_instruction(code!(jmp { lbl }));
 });
 
 asm_test!(jz, |instructions: &mut Instructions<Register>| {
+    let lbl = instructions.add_label();
+
+    instructions.add_instruction(code!(lbl: nop));
     for reg in REGISTERS {
-        instructions.add_instruction(code!(jz { reg }, { DEADBEEF32 }));
+        instructions.add_instruction(code!(jz { reg }, { lbl }));
     }
 });
 

@@ -80,12 +80,12 @@ macro_rules! instruction_kind {
         }
     };
     (jmp {$loc:expr}) => {
-        $crate::asm::InstructionKind::Jump({$loc}.into())
+        $crate::asm::InstructionKind::Jump({$loc})
     };
     (jz {$($reg:tt)*},{$loc:expr}) => {
         $crate::asm::InstructionKind::JumpIfZero {
             src: $crate::reg!($($reg)*),
-            target: {$loc}.into(),
+            target: {$loc},
         }
     };
     (slt {$($reg1:tt)*},{$($reg2:tt)*},{$($reg3:tt)*}) => {
@@ -101,6 +101,9 @@ macro_rules! instruction_kind {
     (call {$($reg:tt)*}) => {
         $crate::asm::InstructionKind::Call($crate::reg!($($reg)*))
     };
+    (nop) => {
+        $crate::asm::InstructionKind::Nop
+    }
 }
 
 #[macro_export]

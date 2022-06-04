@@ -1412,7 +1412,7 @@ have `jmp` instructions that jump to the next instruction which is semantically
 right but it is a bit wasteful. Nevertheless, if we link and run our main
 program we will get the same output as before.
 
-# Optimizing code generation
+# Optimizing Code Generation
 
 At this point you should have noticed that even though our code generation
 works, the generated code could be improved by either removing instructions or
@@ -1426,3 +1426,34 @@ Another advantage of doing this is that it allows us to make our assembly
 portable. The only platform specific part of it are the registers, so that
 means that we can make our instructions generic over the type of registers we
 are going to use.
+
+## Removing Unnecessary Jumps
+
+As we saw before, our MIR lowering stage introduces some instructions that jump
+to the immediately next instruction. Given that we are able to manipulate
+instructions before emmiting them, we can find such instructions by searching
+every jump instruction whose target is a the label of the next instruction.
+
+Even though it would be tempting to delete such instructions figuring out what
+to do with the label of the instruction to be deleted is not trivial: We could
+try to assign this label to the next instruction but it already has another
+label, meaning that we would have to search all occurences of either label and
+replace it by the other.
+
+Instead, we will intoduce a no-op instruction that is ignored when emitting
+machine code. So for example:
+```asm
+     addi 0x1,rax
+foo: jmp bar
+bar: mov rax,rcx
+```
+
+Is optimized to:
+```asm
+     addi 0x1,rax
+foo: nop
+bar: mov rax,rcx
+```
+
+And then, when labels are solved `foo` and `bar` will point to the same
+location.

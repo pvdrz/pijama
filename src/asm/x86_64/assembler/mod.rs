@@ -5,9 +5,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::asm::x86_64::register::Register;
-use crate::asm::{
-    Address, Imm32, Imm64, Instruction, InstructionKind, Instructions, Label, Location,
-};
+use crate::asm::{Address, Imm32, Imm64, Instruction, InstructionKind, Instructions, Label};
 use mod_rm::ModRmBuilder;
 use sib::{Scale, SibBuilder};
 
@@ -88,6 +86,7 @@ impl<'asm> Assembler<'asm> {
             InstructionKind::JumpIfZero { src, target } => self.assemble_jump_if_zero(src, target),
             InstructionKind::Return => self.assemble_return(),
             InstructionKind::Call(target) => self.assemble_call(target),
+            InstructionKind::Nop => {}
         }
     }
 
@@ -227,26 +226,15 @@ impl<'asm> Assembler<'asm> {
         self.buf.extend_from_slice(&[opcode, OPCODE, mod_rm]);
     }
 
-    fn assemble_jump(&mut self, target: Location) {
+    fn assemble_jump(&mut self, target: Label) {
         let opcode = 0xe9;
 
         self.buf.extend_from_slice(&[opcode]);
-
-        match target {
-            Location::Imm32(mut target) => {
-                // The jump target is relative to the instruction pointer after reading this
-                // instruction which has 1 + 4 bytes.
-                target -= self.buf.len() as i32 + 0x4;
-                self.buf.extend_from_slice(&target.to_le_bytes());
-            }
-            Location::Label(label) => {
-                self.add_patch(label);
-                self.buf.extend_from_slice(&0x0i32.to_le_bytes());
-            }
-        }
+        self.add_patch(target);
+        self.buf.extend_from_slice(&0x0i32.to_le_bytes());
     }
 
-    fn assemble_jump_if_zero(&mut self, src: Register, target: Location) {
+    fn assemble_jump_if_zero(&mut self, src: Register, target: Label) {
         let rex_prefix = rex(true, false, false);
 
         // cmp src,0x0
@@ -265,19 +253,8 @@ impl<'asm> Assembler<'asm> {
 
         // je target
         self.buf.extend_from_slice(&[0x0f, 0x84]);
-
-        match target {
-            Location::Imm32(mut target) => {
-                // The jump target is relative to the instruction pointer after reading this
-                // instruction which has 5 + 4 bytes.
-                target -= self.buf.len() as i32 + 0x4;
-                self.buf.extend_from_slice(&target.to_le_bytes());
-            }
-            Location::Label(label) => {
-                self.add_patch(label);
-                self.buf.extend_from_slice(&0x0i32.to_le_bytes());
-            }
-        }
+        self.add_patch(target);
+        self.buf.extend_from_slice(&0x0i32.to_le_bytes());
     }
 
     fn assemble_return(&mut self) {

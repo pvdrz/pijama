@@ -114,12 +114,14 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let section = obj.section_id(StandardSection::Text);
 
     let mut start_code = Vec::new();
-    let start_instructions = pijama::mir_lowering::lower_function(&start_mir());
+    let mut start_instructions = pijama::mir_lowering::lower_function(&start_mir());
+    start_instructions.optimize();
     assemble(start_instructions, &mut start_code)?;
     add_function(&mut obj, section, b"start", &start_code);
 
     let mut duplicate_code = Vec::new();
-    let duplicate_instructions = pijama::mir_lowering::lower_function(&duplicate_mir());
+    let mut duplicate_instructions = pijama::mir_lowering::lower_function(&duplicate_mir());
+    duplicate_instructions.optimize();
     assemble(duplicate_instructions, &mut duplicate_code)?;
     add_function(&mut obj, section, b"duplicate", &duplicate_code);
 
