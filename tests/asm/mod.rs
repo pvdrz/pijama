@@ -103,139 +103,80 @@ fn compare(expected: &[u8], found: &[u8]) {
     }
 }
 
-#[test]
-fn loadi() {
-    let expected_bytes = include_bytes!("out/loadi.out");
+macro_rules! asm_test {
+    ($name:ident, $f:expr) => {
+        #[test]
+        fn $name() {
+            let expected_bytes = include_bytes!(concat!("out/", stringify!($name), ".out"));
 
-    let mut instructions = Instructions::new();
+            let mut instructions = Instructions::<Register>::new();
 
+            ($f)(&mut instructions);
+
+            let mut bytes = Vec::new();
+            assemble(instructions, &mut bytes).unwrap();
+            compare(expected_bytes, &mut bytes);
+        }
+    };
+}
+
+asm_test!(loadi, |instructions: &mut Instructions<Register>| {
     for dst in REGISTERS {
         instructions.add_instruction(code!(loadi { DEADBEEF64 }, { dst }));
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn load() {
-    let expected_bytes = include_bytes!("out/load.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(load, |instructions: &mut Instructions<Register>| {
     for base in REGISTERS {
         for dst in REGISTERS {
             instructions.add_instruction(code!(load { base } + { DEADBEEF32 }, { dst }));
         }
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn store() {
-    let expected_bytes = include_bytes!("out/store.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(store, |instructions: &mut Instructions<Register>| {
     for src in REGISTERS {
         for dst in REGISTERS {
             instructions.add_instruction(code!(store { src }, { dst } + { DEADBEEF32 }));
         }
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-#[test]
-fn mov() {
-    let expected_bytes = include_bytes!("out/mov.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(mov, |instructions: &mut Instructions<Register>| {
     for src in REGISTERS {
         for dst in REGISTERS {
             instructions.add_instruction(code!(mov { src }, { dst }));
         }
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn push() {
-    let expected_bytes = include_bytes!("out/push.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(push, |instructions: &mut Instructions<Register>| {
     for reg in REGISTERS {
         instructions.add_instruction(code!(push { reg }));
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn pop() {
-    let expected_bytes = include_bytes!("out/pop.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(pop, |instructions: &mut Instructions<Register>| {
     for reg in REGISTERS {
         instructions.add_instruction(code!(pop { reg }));
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn add() {
-    let expected_bytes = include_bytes!("out/add.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(add, |instructions: &mut Instructions<Register>| {
     for src in REGISTERS {
         for dst in REGISTERS {
             instructions.add_instruction(code!(add { src }, { dst }));
         }
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn addi() {
-    let expected_bytes = include_bytes!("out/addi.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(addi, |instructions: &mut Instructions<Register>| {
     for dst in REGISTERS {
         instructions.add_instruction(code!(addi { DEADBEEF32 }, { dst }));
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn slt() {
-    let expected_bytes = include_bytes!("out/slt.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(slt, |instructions: &mut Instructions<Register>| {
     for src1 in REGISTERS {
         for src2 in REGISTERS {
             for dst in REGISTERS {
@@ -243,65 +184,25 @@ fn slt() {
             }
         }
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn jmp() {
-    let expected_bytes = include_bytes!("out/jmp.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(jmp, |instructions: &mut Instructions<Register>| {
     instructions.add_instruction(code!(jmp { DEADBEEF32 }));
     instructions.add_instruction(code!(jmp { DEADBEEF32 }));
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn jz() {
-    let expected_bytes = include_bytes!("out/jz.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(jz, |instructions: &mut Instructions<Register>| {
     for reg in REGISTERS {
         instructions.add_instruction(code!(jz { reg }, { DEADBEEF32 }));
     }
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn ret() {
-    let expected_bytes = include_bytes!("out/ret.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(ret, |instructions: &mut Instructions<Register>| {
     instructions.add_instruction(code!(ret));
+});
 
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
-
-#[test]
-fn call() {
-    let expected_bytes = include_bytes!("out/call.out");
-
-    let mut instructions = Instructions::new();
-
+asm_test!(call, |instructions: &mut Instructions<Register>| {
     for reg in REGISTERS {
         instructions.add_instruction(code!(call { reg }));
     }
-
-    let mut buf = Vec::new();
-    assemble(instructions, &mut buf).unwrap();
-    compare(expected_bytes, &buf);
-}
+});
