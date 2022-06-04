@@ -1474,3 +1474,55 @@ like:
   4e:   e9 d1 ff ff ff          jmp    24 <duplicate+0x14>
   53:   c3                      ret
 ```
+
+One important aspect is that this optimization is independent of the platform.
+Jumping to the next instruction is always the same as not doing anything.
+
+## Better Ways to Load Immediates
+
+Up until now we have encoded our `loadi imm64,reg` instruction as `mov
+reg,imm64`. However, most of the times we are using it to set registers to
+zero. Like at the beginning of `duplicate` or when encoding the `stl`
+instruction.
+
+In the good ol' days. It was a well known fact that a faster way to do `mov
+reg,0x0` was using `xor reg,reg` instead. Even if we do not care about that,
+the `xor` operation takes less bytes anyway. Sadly, calling `xor` changes the
+`RFLAGS` register which means that we cannot use in between `cmp` and `setl`.
+
+For now we will focus on the regular case of encoding `loadi 0x0,reg` and then
+figure out how to optimize `stl`.
+
+First, we need to go back to the manual and get the appropiate `xor`
+instruction, we have two options:
+```
+┌───────────────┬────────────────┬───────┬────────────────┐
+│ Opcode        │ Instruction    │ Op/En │ Description    │
+├───────────────┼────────────────┼───────┼────────────────┤
+│ REX.W + 31 /r │ XOR r/m64, r64 │ MR    │ r/m64 XOR r64. │
+├───────────────┼────────────────┼───────┼────────────────┤
+│ REX.W + 33 /r │ XOR r64, r/m64 │ RM    │ r64 XOR r/m64. │
+└───────────────┴────────────────┴───────┴────────────────┘
+```
+
+Both use the same number of bytes but for some reason `nasm` favors the first
+one so we will use that one so we can test our code against `nasm`. This
+instruction encodes it's first operand in the `r/m` register and the second one
+in the `reg` register. This is one of those happy cases where the order doesn't
+actually matter as both operands are the same register.
+
+After this optimization, the emmited code should be:
+```objdump
+0000000000000010 <duplicate>:
+  10:   48 31 c0                xor    rax,rax
+  13:   48 31 f6                xor    rsi,rsi
+  16:   48 39 fe                cmp    rsi,rdi
+  19:   48 ba 00 00 00 00 00 00 00 00   movabs rdx,0x0
+  23:   0f 9c c2                setl   dl
+  26:   48 81 fa 00 00 00 00    cmp    rdx,0x0
+  2d:   0f 84 12 00 00 00       je     45 <duplicate+0x35>
+  33:   48 05 02 00 00 00       add    rax,0x2
+  39:   48 81 c6 01 00 00 00    add    rsi,0x1
+  40:   e9 d1 ff ff ff          jmp    16 <duplicate+0x6>
+  45:   c3                      ret
+  ```

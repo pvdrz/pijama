@@ -62,7 +62,7 @@ impl<'asm> Assembler<'asm> {
         })
     }
 
-    /// Assembles an instruction.
+    /// Assembles an instruction.:
     ///
     /// If the instruction has a label, the previous location of the label will be overwritten.
     pub fn assemble_instruction(&mut self, instruction: Instruction<Register>) {
@@ -71,7 +71,7 @@ impl<'asm> Assembler<'asm> {
         }
 
         match instruction.kind {
-            InstructionKind::LoadImm { src, dst } => self.assemble_load_imm(src, dst),
+            InstructionKind::LoadImm { src, dst } => self.assemble_load_imm::<true>(src, dst),
             InstructionKind::LoadAddr { src, dst } => self.assemble_load_addr(src, dst),
             InstructionKind::Store { src, dst } => self.assemble_store(src, dst),
             InstructionKind::Mov { src, dst } => self.assemble_mov(src, dst),
@@ -90,13 +90,25 @@ impl<'asm> Assembler<'asm> {
         }
     }
 
-    fn assemble_load_imm(&mut self, src: Imm64, dst: Register) {
-        let rex_prefix = rex(true, false, false);
-        let opcode = 0xb8 + dst as u8;
-        let io = src.to_le_bytes();
+    fn assemble_load_imm<const OPTIMIZE: bool>(&mut self, src: Imm64, dst: Register) {
+        if OPTIMIZE && src == 0 {
+            let rex_prefix = rex(true, false, false);
+            let opcode = 0x31;
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(dst as u8)
+                .rm(dst as u8)
+                .build();
 
-        self.buf.extend_from_slice(&[rex_prefix, opcode]);
-        self.buf.extend_from_slice(&io);
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        } else {
+            let rex_prefix = rex(true, false, false);
+            let opcode = 0xb8 + dst as u8;
+            let io = src.to_le_bytes();
+
+            self.buf.extend_from_slice(&[rex_prefix, opcode]);
+            self.buf.extend_from_slice(&io);
+        }
     }
 
     fn assemble_load_addr(&mut self, src: Address<Imm32, Register>, dst: Register) {
@@ -214,7 +226,7 @@ impl<'asm> Assembler<'asm> {
         // cmp reg2,reg1
         self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
 
-        self.assemble_load_imm(0x0, dst);
+        self.assemble_load_imm::<false>(0x0, dst);
 
         // setl dst
         if let Register::Di | Register::Si | Register::Bp | Register::Sp = dst {

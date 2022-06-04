@@ -124,6 +124,9 @@ asm_test!(loadi, |instructions: &mut Instructions<Register>| {
     for dst in REGISTERS {
         instructions.add_instruction(code!(loadi { DEADBEEF64 }, { dst }));
     }
+    for dst in REGISTERS {
+        instructions.add_instruction(code!(loadi { 0x0 }, { dst }));
+    }
 });
 
 asm_test!(load, |instructions: &mut Instructions<Register>| {
