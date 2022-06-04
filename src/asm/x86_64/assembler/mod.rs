@@ -215,18 +215,33 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_set_if<const OPCODE: u8>(&mut self, src1: Register, src2: Register, dst: Register) {
-        let rex_prefix = rex(true, false, false);
-        let opcode = 0x39;
-        let mod_rm = ModRmBuilder::new()
-            .direct()
-            .reg(src2 as u8)
-            .rm(src1 as u8)
-            .build();
+        if dst != src1 && dst != src2 {
+            self.assemble_load_imm::<true>(0x0, dst);
 
-        // cmp reg2,reg1
-        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            let rex_prefix = rex(true, false, false);
+            let opcode = 0x39;
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(src2 as u8)
+                .rm(src1 as u8)
+                .build();
 
-        self.assemble_load_imm::<false>(0x0, dst);
+            // cmp reg2,reg1
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        } else {
+            let rex_prefix = rex(true, false, false);
+            let opcode = 0x39;
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(src2 as u8)
+                .rm(src1 as u8)
+                .build();
+
+            // cmp reg2,reg1
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+
+            self.assemble_load_imm::<false>(0x0, dst);
+        }
 
         // setl dst
         if let Register::Di | Register::Si | Register::Bp | Register::Sp = dst {

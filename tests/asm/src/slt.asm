@@ -1,8 +1,16 @@
 BITS 64
 
 %macro slt 4
-    cmp  %1,%2
-    mov  %3,qword 0x0
+    %if %1 = %3
+        cmp  %1,%2
+        mov  %3,qword 0x0
+    %elif %2 = %3
+        cmp  %1,%2
+        mov  %3,qword 0x0
+    %else
+        xor %3,%3
+        cmp %1,%2
+    %endif
     setl %4
 %endmacro
 
@@ -36,3 +44,5 @@ expand rsp
 expand rbp
 expand rsi
 expand rdi
+
+

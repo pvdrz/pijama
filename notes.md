@@ -1525,4 +1525,7 @@ After this optimization, the emmited code should be:
   39:   48 81 c6 01 00 00 00    add    rsi,0x1
   40:   e9 d1 ff ff ff          jmp    16 <duplicate+0x6>
   45:   c3                      ret
-  ```
+```
+
+To optimize `slt reg1,reg2,reg3` we will do it by putting `mov` before `cmp` if
+`reg3` is not equal to `reg1` or `reg2`.
