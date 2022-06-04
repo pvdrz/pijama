@@ -1061,15 +1061,6 @@ long duplicate(long value) {
 ```
 
 which should be equivalent to something like
-
-    asm.assemble_instruction(code! { cmp: slt {rdx},{rdi},{rcx} });
-    asm.assemble_instruction(code! {      jz  {rcx}, {end} });
-
-    asm.assemble_instruction(code! {      addi {0x2},{rax} });
-    asm.assemble_instruction(code! {      addi {0x1},{rdx} });
-    asm.assemble_instruction(code! {      jmp  {cmp} });
-
-    asm.assemble_instruction(code! { end: ret });
 ```asm
 loadi 0x0,rax    ; output = 0
 loadi 0x0,rdx    ; i = 0
