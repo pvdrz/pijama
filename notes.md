@@ -1568,3 +1568,6 @@ Then, we can modify the code generation for `loadi` and check if the leading
 imm32` instruction instead. This instruction encoding is similar to `MOV
 r64,imm64`, the only differences are that it does not use the `REX` prefix and
 it uses 4 displacement bytes instead of 8.
+
+Using this same idea, we can use `XOR r32,r32` to encode `loadi 0x0,reg` as the
+upper part of the register will be overwritten with zeros.

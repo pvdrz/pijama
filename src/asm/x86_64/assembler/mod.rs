@@ -92,7 +92,6 @@ impl<'asm> Assembler<'asm> {
 
     fn assemble_load_imm<const OPTIMIZE: bool>(&mut self, src: Imm64, dst: Register) {
         if OPTIMIZE && src == 0 {
-            let rex_prefix = rex(true, false, false);
             let opcode = 0x31;
             let mod_rm = ModRmBuilder::new()
                 .direct()
@@ -100,7 +99,7 @@ impl<'asm> Assembler<'asm> {
                 .rm(dst as u8)
                 .build();
 
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.buf.extend_from_slice(&[opcode, mod_rm]);
         } else if let Ok(src) = Imm32::try_from(src) {
             let opcode = 0xb8 + dst as u8;
             let io = src.to_le_bytes();

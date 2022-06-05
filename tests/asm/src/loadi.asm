@@ -8,14 +8,14 @@ mov rbp,-0x2152411021524111
 mov rsi,-0x2152411021524111
 mov rdi,-0x2152411021524111
 
-xor rax,rax
-xor rcx,rcx
-xor rdx,rdx
-xor rbx,rbx
-xor rsp,rsp
-xor rbp,rbp
-xor rsi,rsi
-xor rdi,rdi
+xor eax,eax
+xor ecx,ecx
+xor edx,edx
+xor ebx,ebx
+xor esp,esp
+xor ebp,ebp
+xor esi,esi
+xor edi,edi
 
 mov eax,0xdeadbeef
 mov ecx,0xdeadbeef

@@ -8,7 +8,7 @@ BITS 64
         cmp  %1,%2
         mov  %4,dword 0x0
     %else
-        xor %3,%3
+        xor %4,%4
         cmp %1,%2
     %endif
     setl %5
