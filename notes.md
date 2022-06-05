@@ -1545,7 +1545,7 @@ To optimize `slt reg1,reg2,reg3` we will do it by putting `mov` before `cmp` if
   3e:   c3                      ret
 ```
 
-## Reducing operand size
+## Reducing Operand Size
 
 Up until now we have tried to restrict our operands to 64-bit registers and
 either 32 or 64-bit immediates. However, `x86-64` allows us to use just the 32,
@@ -1571,3 +1571,8 @@ it uses 4 displacement bytes instead of 8.
 
 Using this same idea, we can use `XOR r32,r32` to encode `loadi 0x0,reg` as the
 upper part of the register will be overwritten with zeros.
+
+We can also reduce the operand size for the `addi` instruction if the immediate
+operand fits in a single byte by replacing `ADD r/m64,imm32` by the `ADD
+r/m64,imm8` instruction which uses the opcode  `0x83` and a single displacement
+byte instead.

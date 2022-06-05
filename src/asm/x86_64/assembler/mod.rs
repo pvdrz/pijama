@@ -204,19 +204,24 @@ impl<'asm> Assembler<'asm> {
 
     fn assemble_add_imm(&mut self, src: i32, dst: Register) {
         let rex_prefix = rex(true, false, false);
+        if let Ok(src) = i8::try_from(src) {
+            let opcode = 0x83;
+            let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
 
-        if let Register::Ax = dst {
+            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.buf.extend_from_slice(&src.to_le_bytes());
+        } else if let Register::Ax = dst {
             let opcode = 0x05;
 
             self.buf.extend_from_slice(&[rex_prefix, opcode]);
+            self.buf.extend_from_slice(&src.to_le_bytes());
         } else {
             let opcode = 0x81;
             let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
 
             self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.buf.extend_from_slice(&src.to_le_bytes());
         }
-
-        self.buf.extend_from_slice(&src.to_le_bytes());
     }
 
     fn assemble_set_if<const OPCODE: u8>(&mut self, src1: Register, src2: Register, dst: Register) {

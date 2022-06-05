@@ -180,6 +180,9 @@ asm_test!(addi, |instructions: &mut Instructions<Register>| {
     for dst in REGISTERS {
         instructions.add_instruction(code!(addi { DEADBEEF32 }, { dst }));
     }
+    for dst in REGISTERS {
+        instructions.add_instruction(code!(addi { 0xff }, { dst }));
+    }
 });
 
 asm_test!(slt, |instructions: &mut Instructions<Register>| {
