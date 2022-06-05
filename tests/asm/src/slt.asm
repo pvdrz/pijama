@@ -1,28 +1,28 @@
 BITS 64
 
-%macro slt 4
+%macro slt 5
     %if %1 = %3
         cmp  %1,%2
-        mov  %3,qword 0x0
+        mov  %4,dword 0x0
     %elif %2 = %3
         cmp  %1,%2
-        mov  %3,qword 0x0
+        mov  %4,dword 0x0
     %else
         xor %3,%3
         cmp %1,%2
     %endif
-    setl %4
+    setl %5
 %endmacro
 
 %macro slt2 2
-    slt %1,%2,rax,al
-    slt %1,%2,rcx,cl
-    slt %1,%2,rdx,dl
-    slt %1,%2,rbx,bl
-    slt %1,%2,rsp,spl
-    slt %1,%2,rbp,bpl
-    slt %1,%2,rsi,sil
-    slt %1,%2,rdi,dil
+    slt %1,%2,rax,eax,al
+    slt %1,%2,rcx,ecx,cl
+    slt %1,%2,rdx,edx,dl
+    slt %1,%2,rbx,ebx,bl
+    slt %1,%2,rsp,esp,spl
+    slt %1,%2,rbp,ebp,bpl
+    slt %1,%2,rsi,esi,sil
+    slt %1,%2,rdi,edi,dil
 %endmacro
 
 %macro expand 1

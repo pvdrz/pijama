@@ -101,6 +101,12 @@ impl<'asm> Assembler<'asm> {
                 .build();
 
             self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        } else if let Ok(src) = Imm32::try_from(src) {
+            let opcode = 0xb8 + dst as u8;
+            let io = src.to_le_bytes();
+
+            self.buf.extend_from_slice(&[opcode]);
+            self.buf.extend_from_slice(&io);
         } else {
             let rex_prefix = rex(true, false, false);
             let opcode = 0xb8 + dst as u8;

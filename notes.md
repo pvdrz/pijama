@@ -1544,3 +1544,27 @@ To optimize `slt reg1,reg2,reg3` we will do it by putting `mov` before `cmp` if
   39:   e9 d8 ff ff ff          jmp    16 <duplicate+0x6>
   3e:   c3                      ret
 ```
+
+## Reducing operand size
+
+Up until now we have tried to restrict our operands to 64-bit registers and
+either 32 or 64-bit immediates. However, `x86-64` allows us to use just the 32,
+16 or 8 lowest bits of each register instead.
+
+According to the Intel manual, when in 64-bits mode: "32-bit operands generate
+a 32-bit result, zero-extended to a 64-bit result in the destination
+general-purpose register". This means that we can shave off some bytes by
+checking if our immediates fit in 32 bits and then remove the `REX` prefix from
+some instructions.
+
+This is not the case for 16 and 8 bits operands: "8-bit and 16-bit operands
+generate an 8-bit or 16-bit result. The upper 56 bits or 48 bits (respectively)
+of the destination general-purpose register are not modified by the operation".
+This is the reason why we had to clear the destination register for the `slt`
+instruction.
+
+Then, we can modify the code generation for `loadi` and check if the leading
+32-bits of an integer are zero, if that is the case, we use the `MOV r32,
+imm32` instruction instead. This instruction encoding is similar to `MOV
+r64,imm64`, the only differences are that it does not use the `REX` prefix and
+it uses 4 displacement bytes instead of 8.
