@@ -1576,3 +1576,25 @@ We can also reduce the operand size for the `addi` instruction if the immediate
 operand fits in a single byte by replacing `ADD r/m64,imm32` by the `ADD
 r/m64,imm8` instruction which uses the opcode  `0x83` and a single displacement
 byte instead.
+
+After all these optimizations, our `duplicate` function should look like this:
+
+```objdump
+0000000000000010 <duplicate>:
+  10:   31 c0                   xor    eax,eax
+  12:   31 f6                   xor    esi,esi
+  14:   31 d2                   xor    edx,edx
+  16:   48 39 fe                cmp    rsi,rdi
+  19:   0f 9c c2                setl   dl
+  1c:   48 81 fa 00 00 00 00    cmp    rdx,0x0
+  23:   0f 84 0d 00 00 00       je     36 <duplicate+0x26>
+  29:   48 83 c0 02             add    rax,0x2
+  2d:   48 83 c6 01             add    rsi,0x1
+  31:   e9 de ff ff ff          jmp    14 <duplicate+0x4>
+  36:   c3                      ret
+```
+
+When we took the MIR for `duplicate` and lowered it, the generated machine code
+used 93 bytes, now we have reduced it to 54. However, it is important to
+remember that this is a very particular case as most optimizations were
+inspired by this function.
