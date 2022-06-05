@@ -351,7 +351,7 @@ This will be our starting instruction set:
 ├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
 │ Set If Less Than     │ slt reg1,reg2,reg3   │ Set reg3 to zero if the contents of reg1 are smaller than the contents of reg2. │
 ├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
-│ Jump                 │ jmp addr             │ Jump to the value stored in addr.                                               │
+│ Jump                 │ jmp imm32            │ Jump imm32 bytes.                                                               │
 ├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
 │ Jump If Zero         │ jz reg,imm32         │ Jump imm32 bytes if the contents of reg are zero.                               │
 ├──────────────────────┼──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┤
@@ -379,7 +379,7 @@ Finally, we have addresses or `addr` which represent memory locations. For now,
 we will say that base addresses are stored in a register, we will extend this
 later. The base address can be modified by adding an offset to the base
 address, this offset can only be an `imm32` and not an `imm64` (this is a
-limitation of the `x86` instruction set).
+limitation of the `x86` architecture).
 
 Now we are ready to encode those instructions as valid `x86` machine code.
 These are the instructions that we will use taken from the Intel's manual:
