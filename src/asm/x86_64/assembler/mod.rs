@@ -1,4 +1,5 @@
 mod mod_rm;
+mod rex;
 mod sib;
 
 use std::error::Error;
@@ -7,6 +8,7 @@ use std::fmt;
 use crate::asm::x86_64::register::Register;
 use crate::asm::{Address, Imm32, Imm64, Instruction, InstructionKind, Instructions, Label};
 use mod_rm::ModRmBuilder;
+use rex::RexBuilder;
 use sib::{Scale, SibBuilder};
 
 pub fn assemble(
@@ -107,7 +109,13 @@ impl<'asm> Assembler<'asm> {
             self.buf.extend_from_slice(&[opcode]);
             self.buf.extend_from_slice(&io);
         } else {
-            let rex_prefix = rex(true, false, false);
+            let rex_prefix = RexBuilder::new()
+                .set_w::<true>()
+                .set_r::<false>()
+                .set_b::<false>()
+                .set_x::<false>()
+                .finish();
+
             let opcode = 0xb8 + dst as u8;
             let io = src.to_le_bytes();
 
@@ -117,7 +125,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_load_addr(&mut self, src: Address<Imm32, Register>, dst: Register) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
         let opcode = 0x8b;
         let mod_rm = ModRmBuilder::new()
             .displacement()
@@ -142,7 +155,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_store(&mut self, src: Register, dst: Address<Imm32, Register>) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
         let opcode = 0x89;
         let mod_rm = ModRmBuilder::new()
             .displacement()
@@ -167,7 +185,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_mov(&mut self, src: Register, dst: Register) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
         let opcode = 0x89;
         let mod_rm = ModRmBuilder::new()
             .direct()
@@ -191,7 +214,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_add(&mut self, src: Register, dst: Register) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
         let opcode = 0x01;
         let mod_rm = ModRmBuilder::new()
             .direct()
@@ -203,7 +231,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_add_imm(&mut self, src: i32, dst: Register) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
         if let Ok(src) = i8::try_from(src) {
             let opcode = 0x83;
             let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
@@ -228,7 +261,12 @@ impl<'asm> Assembler<'asm> {
         if dst != src1 && dst != src2 {
             self.assemble_load_imm::<true>(0x0, dst);
 
-            let rex_prefix = rex(true, false, false);
+            let rex_prefix = RexBuilder::new()
+                .set_w::<true>()
+                .set_r::<false>()
+                .set_b::<false>()
+                .set_x::<false>()
+                .finish();
             let opcode = 0x39;
             let mod_rm = ModRmBuilder::new()
                 .direct()
@@ -239,7 +277,12 @@ impl<'asm> Assembler<'asm> {
             // cmp reg2,reg1
             self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
         } else {
-            let rex_prefix = rex(true, false, false);
+            let rex_prefix = RexBuilder::new()
+                .set_w::<true>()
+                .set_r::<false>()
+                .set_b::<false>()
+                .set_x::<false>()
+                .finish();
             let opcode = 0x39;
             let mod_rm = ModRmBuilder::new()
                 .direct()
@@ -255,7 +298,12 @@ impl<'asm> Assembler<'asm> {
 
         // setl dst
         if let Register::Di | Register::Si | Register::Bp | Register::Sp = dst {
-            let rex_prefix = rex(false, false, false);
+            let rex_prefix = RexBuilder::new()
+                .set_w::<false>()
+                .set_r::<false>()
+                .set_b::<false>()
+                .set_x::<false>()
+                .finish();
             self.buf.extend_from_slice(&[rex_prefix]);
         }
         let opcode = 0x0f;
@@ -272,7 +320,12 @@ impl<'asm> Assembler<'asm> {
     }
 
     fn assemble_jump_if_zero(&mut self, src: Register, target: Label) {
-        let rex_prefix = rex(true, false, false);
+        let rex_prefix = RexBuilder::new()
+            .set_w::<true>()
+            .set_r::<false>()
+            .set_b::<false>()
+            .set_x::<false>()
+            .finish();
 
         // cmp src,0x0
         if let Register::Ax = src {
@@ -328,22 +381,6 @@ impl<'asm> Assembler<'asm> {
 
         Ok(())
     }
-}
-
-const fn rex(w_bit: bool, r_bit: bool, b_bit: bool) -> u8 {
-    let mut prefix = 0b01000000;
-
-    if w_bit {
-        prefix |= 0b1000;
-    }
-    if r_bit {
-        prefix |= 0b100;
-    }
-    if b_bit {
-        prefix |= 0b1;
-    }
-
-    prefix
 }
 
 struct Patch {
