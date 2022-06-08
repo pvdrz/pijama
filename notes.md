@@ -289,10 +289,10 @@ So as far as we know, this is the encoding of the instruction:
 
 Now we can try to reconstruct each part of the instruction:
 
-The `REX` prefix is composed of three bits `W`, `R`, `B` and is written as a
-single byte with the following binary format `0b0100WR0B`. From the `Opcode`
-column we can infer that we only need to set the `W` bit. Meaning that the
-first byte of the instruction should be `0b01001000` or `0x48`.
+The `REX` prefix is composed of four bits `W`, `R`, `X` and `B`, and is written
+as a single byte with the following binary format `0b0100WRXB`. From the
+`Opcode` column we can infer that we only need to set the `W` bit. Meaning that
+the first byte of the instruction should be `0b01001000` or `0x48`.
 
 The second byte is easy as the `Opcode` column says it is `0x89`.
 
@@ -1598,3 +1598,40 @@ When we took the MIR for `duplicate` and lowered it, the generated machine code
 used 93 bytes, now we have reduced it to 54. However, it is important to
 remember that this is a very particular case as most optimizations were
 inspired by this function.
+
+# Register Allocation and Other Monsters
+
+It would be nice to solve this limitation of only allowing functions with few
+locals. There are different ways of doing register allocation which usually
+trade-off between runtime and compilation performance.
+
+However, before doing that, we should figure out how to use the extra `r8`,
+..., `r15` registers that `x86` provides in 64-bits mode.
+
+## Using More Registers
+
+To use the extra registers, we need to review how `REX` prefixes work. We
+already learnt that the `W` bit is used to enable 64-bit operands on several
+instructions. The three remaining bytes `R`, `X` and `B` are used to extend the
+fields of the `Mod R/M` and `SIB` bytes:
+
+- The `R` bit is used to extend the `reg` field. This means that if `R` is set
+  to one, the `reg` field will encode the registers `r8`, ..., `r15` using the
+  numbers from `0` to `7` in exactly that order.
+
+- The `X` bit is used to extend the `index` field in the same way as the `R`.
+
+- The `B` bit is used to extend the `r/m` field or the `base` field in the same
+  way as `R`. This also works if the register is encoded in the opcode. Like
+  with the pop and push instructions.
+
+So, if we want to use one of these registers, what we need to do is first check
+if the current instruction has a `REX` prefix and add one if it does not have
+it. Then we enable the according bit inside the prefix to use the extension
+registers in the operand we want.
+
+It should be no surprise that the `r12` register has the same limitation as the
+`rsp` register and it requires an `SIB` byte to use it as the base address
+inside the load address instruction.
+
+We also need to update our tests to take into account these new registers.

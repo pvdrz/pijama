@@ -8,7 +8,7 @@ use pijama::{
 
 use std::fmt::Write;
 
-const REGISTERS: [Register; 8] = [
+const REGISTERS: [Register; 16] = [
     Register::Ax,
     Register::Cx,
     Register::Dx,
@@ -17,6 +17,14 @@ const REGISTERS: [Register; 8] = [
     Register::Bp,
     Register::Si,
     Register::Di,
+    Register::R8,
+    Register::R9,
+    Register::R10,
+    Register::R11,
+    Register::R12,
+    Register::R13,
+    Register::R14,
+    Register::R15,
 ];
 
 const DEADBEEF32: i32 = 0xdeadbeefu32 as i32;
@@ -111,11 +119,12 @@ macro_rules! asm_test {
 
             let mut instructions = Instructions::<Register>::new();
 
-            ($f)(&mut instructions);
+            let f = { $f };
+            f(&mut instructions);
 
             let mut bytes = Vec::new();
             assemble(instructions, &mut bytes).unwrap();
-            compare(expected_bytes, &mut bytes);
+            compare(expected_bytes, &bytes);
         }
     };
 }

@@ -24,6 +24,30 @@ macro_rules! reg {
     (rdi) => {
         $crate::asm::x86_64::Register::Di
     };
+    (r8) => {
+        $crate::asm::x86_64::Register::R8
+    };
+    (r9) => {
+        $crate::asm::x86_64::Register::R9
+    };
+    (r10) => {
+        $crate::asm::x86_64::Register::R10
+    };
+    (r11) => {
+        $crate::asm::x86_64::Register::R11
+    };
+    (r12) => {
+        $crate::asm::x86_64::Register::R12
+    };
+    (r13) => {
+        $crate::asm::x86_64::Register::R13
+    };
+    (r14) => {
+        $crate::asm::x86_64::Register::R14
+    };
+    (r15) => {
+        $crate::asm::x86_64::Register::R15
+    };
     ($expr:expr) => {
         $expr
     };

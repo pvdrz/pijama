@@ -64,6 +64,14 @@ impl<'asm> Assembler<'asm> {
         })
     }
 
+    fn push_byte(&mut self, byte: u8) {
+        self.buf.push(byte)
+    }
+
+    fn push_bytes<const N: usize>(&mut self, bytes: [u8; N]) {
+        self.buf.extend_from_slice(&bytes)
+    }
+
     /// Assembles an instruction.:
     ///
     /// If the instruction has a label, the previous location of the label will be overwritten.
@@ -94,274 +102,331 @@ impl<'asm> Assembler<'asm> {
 
     fn assemble_load_imm<const OPTIMIZE: bool>(&mut self, src: Imm64, dst: Register) {
         if OPTIMIZE && src == 0 {
-            let opcode = 0x31;
+            // xor dst,dst
+            if dst.needs_extension() {
+                let rex_prefix = RexBuilder::new()
+                    .set_w(false)
+                    .set_r(true)
+                    .set_x(false)
+                    .set_b(true)
+                    .finish();
+                self.push_byte(rex_prefix);
+            }
+
             let mod_rm = ModRmBuilder::new()
                 .direct()
-                .reg(dst as u8)
-                .rm(dst as u8)
+                .reg(dst.encode())
+                .rm(dst.encode())
                 .build();
-
-            self.buf.extend_from_slice(&[opcode, mod_rm]);
+            self.push_bytes([0x31, mod_rm]);
         } else if let Ok(src) = Imm32::try_from(src) {
-            let opcode = 0xb8 + dst as u8;
-            let io = src.to_le_bytes();
+            // mov dst,imm32
+            if dst.needs_extension() {
+                let rex_prefix = RexBuilder::new()
+                    .set_w(false)
+                    .set_r(false)
+                    .set_x(false)
+                    .set_b(true)
+                    .finish();
 
-            self.buf.extend_from_slice(&[opcode]);
-            self.buf.extend_from_slice(&io);
+                self.push_byte(rex_prefix);
+            }
+
+            self.push_byte(0xb8 + dst.encode());
+            self.push_bytes(src.to_le_bytes());
         } else {
+            // mov dst,imm64
             let rex_prefix = RexBuilder::new()
-                .set_w::<true>()
-                .set_r::<false>()
-                .set_b::<false>()
-                .set_x::<false>()
+                .set_w(true)
+                .set_r(false)
+                .set_x(false)
+                .set_b(dst.needs_extension())
                 .finish();
 
-            let opcode = 0xb8 + dst as u8;
-            let io = src.to_le_bytes();
-
-            self.buf.extend_from_slice(&[rex_prefix, opcode]);
-            self.buf.extend_from_slice(&io);
+            self.buf
+                .extend_from_slice(&[rex_prefix, 0xb8 + dst.encode()]);
+            self.push_bytes(src.to_le_bytes());
         }
     }
 
     fn assemble_load_addr(&mut self, src: Address<Imm32, Register>, dst: Register) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(dst.needs_extension())
+            .set_x(false)
+            .set_b(src.base.needs_extension())
             .finish();
-        let opcode = 0x8b;
+
         let mod_rm = ModRmBuilder::new()
             .displacement()
-            .reg(dst as u8)
-            .rm(src.base as u8)
+            .reg(dst.encode())
+            .rm(src.base.encode())
             .build();
 
-        if let Register::Sp = src.base {
+        self.push_bytes([rex_prefix, 0x8b, mod_rm]);
+
+        if let Register::Sp | Register::R12 = src.base {
             let sib = SibBuilder::new()
                 .scale(Scale::One)
                 .index(src.base)
                 .base(src.base)
                 .build();
 
-            self.buf
-                .extend_from_slice(&[rex_prefix, opcode, mod_rm, sib]);
-        } else {
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.push_byte(sib);
         }
 
-        self.buf.extend_from_slice(&src.offset.to_le_bytes());
+        self.push_bytes(src.offset.to_le_bytes());
     }
 
     fn assemble_store(&mut self, src: Register, dst: Address<Imm32, Register>) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(dst.base.needs_extension())
+            .set_x(false)
+            .set_b(src.needs_extension())
             .finish();
-        let opcode = 0x89;
+
         let mod_rm = ModRmBuilder::new()
             .displacement()
-            .reg(dst.base as u8)
-            .rm(src as u8)
+            .reg(dst.base.encode())
+            .rm(src.encode())
             .build();
 
-        if let Register::Sp = src {
+        self.push_bytes([rex_prefix, 0x89, mod_rm]);
+
+        if let Register::Sp | Register::R12 = src {
             let sib = SibBuilder::new()
                 .scale(Scale::One)
                 .index(src)
                 .base(src)
                 .build();
 
-            self.buf
-                .extend_from_slice(&[rex_prefix, opcode, mod_rm, sib]);
-        } else {
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.push_byte(sib);
         }
 
-        self.buf.extend_from_slice(&dst.offset.to_le_bytes());
+        self.push_bytes(dst.offset.to_le_bytes());
     }
 
     fn assemble_mov(&mut self, src: Register, dst: Register) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(src.needs_extension())
+            .set_x(false)
+            .set_b(dst.needs_extension())
             .finish();
-        let opcode = 0x89;
+
         let mod_rm = ModRmBuilder::new()
             .direct()
-            .reg(src as u8)
-            .rm(dst as u8)
+            .reg(src.encode())
+            .rm(dst.encode())
             .build();
 
-        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        self.push_bytes([rex_prefix, 0x89, mod_rm]);
     }
 
     fn assemble_push(&mut self, reg: Register) {
-        let opcode = 0x50 + reg as u8;
+        if reg.needs_extension() {
+            let rex_prefix = RexBuilder::new()
+                .set_w(false)
+                .set_r(false)
+                .set_x(false)
+                .set_b(true)
+                .finish();
 
-        self.buf.extend_from_slice(&[opcode]);
+            self.push_byte(rex_prefix);
+        }
+
+        self.push_byte(0x50 + reg.encode());
     }
 
     fn assemble_pop(&mut self, reg: Register) {
-        let opcode = 0x58 + reg as u8;
+        if reg.needs_extension() {
+            let rex_prefix = RexBuilder::new()
+                .set_w(false)
+                .set_r(false)
+                .set_x(false)
+                .set_b(true)
+                .finish();
 
-        self.buf.extend_from_slice(&[opcode]);
+            self.push_byte(rex_prefix);
+        }
+
+        self.push_byte(0x58 + reg.encode());
     }
 
     fn assemble_add(&mut self, src: Register, dst: Register) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(src.needs_extension())
+            .set_x(false)
+            .set_b(dst.needs_extension())
             .finish();
-        let opcode = 0x01;
+
         let mod_rm = ModRmBuilder::new()
             .direct()
-            .reg(src as u8)
-            .rm(dst as u8)
+            .reg(src.encode())
+            .rm(dst.encode())
             .build();
 
-        self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+        self.push_bytes([rex_prefix, 0x01, mod_rm]);
     }
 
     fn assemble_add_imm(&mut self, src: i32, dst: Register) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(false)
+            .set_x(false)
+            .set_b(dst.needs_extension())
             .finish();
+
         if let Ok(src) = i8::try_from(src) {
-            let opcode = 0x83;
-            let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
+            // add dst,imm8
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(0x0)
+                .rm(dst.encode())
+                .build();
 
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
-            self.buf.extend_from_slice(&src.to_le_bytes());
+            self.push_bytes([rex_prefix, 0x83, mod_rm]);
+            self.push_bytes(src.to_le_bytes());
         } else if let Register::Ax = dst {
-            let opcode = 0x05;
-
-            self.buf.extend_from_slice(&[rex_prefix, opcode]);
-            self.buf.extend_from_slice(&src.to_le_bytes());
+            // add rax,imm32
+            self.push_bytes([rex_prefix, 0x05]);
+            self.push_bytes(src.to_le_bytes());
         } else {
-            let opcode = 0x81;
-            let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
+            // add rax,imm32
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(0x0)
+                .rm(dst.encode())
+                .build();
 
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
-            self.buf.extend_from_slice(&src.to_le_bytes());
+            self.push_bytes([rex_prefix, 0x81, mod_rm]);
+            self.push_bytes(src.to_le_bytes());
         }
     }
 
     fn assemble_set_if<const OPCODE: u8>(&mut self, src1: Register, src2: Register, dst: Register) {
         if dst != src1 && dst != src2 {
+            // xor dst,dst
             self.assemble_load_imm::<true>(0x0, dst);
 
             let rex_prefix = RexBuilder::new()
-                .set_w::<true>()
-                .set_r::<false>()
-                .set_b::<false>()
-                .set_x::<false>()
+                .set_w(true)
+                .set_r(src2.needs_extension())
+                .set_x(false)
+                .set_b(src1.needs_extension())
                 .finish();
-            let opcode = 0x39;
+
             let mod_rm = ModRmBuilder::new()
                 .direct()
-                .reg(src2 as u8)
-                .rm(src1 as u8)
+                .reg(src2.encode())
+                .rm(src1.encode())
                 .build();
 
-            // cmp reg2,reg1
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.push_bytes([rex_prefix, 0x39, mod_rm]);
         } else {
+            // cmp src2,src1
             let rex_prefix = RexBuilder::new()
-                .set_w::<true>()
-                .set_r::<false>()
-                .set_b::<false>()
-                .set_x::<false>()
+                .set_w(true)
+                .set_r(src2.needs_extension())
+                .set_x(false)
+                .set_b(src1.needs_extension())
                 .finish();
-            let opcode = 0x39;
             let mod_rm = ModRmBuilder::new()
                 .direct()
-                .reg(src2 as u8)
-                .rm(src1 as u8)
+                .reg(src2.encode())
+                .rm(src1.encode())
                 .build();
 
-            // cmp reg2,reg1
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.push_bytes([rex_prefix, 0x39, mod_rm]);
 
+            // mov dst,0x0
             self.assemble_load_imm::<false>(0x0, dst);
         }
 
         // setl dst
-        if let Register::Di | Register::Si | Register::Bp | Register::Sp = dst {
+        if !matches!(
+            dst,
+            Register::Ax | Register::Cx | Register::Bx | Register::Dx
+        ) {
             let rex_prefix = RexBuilder::new()
-                .set_w::<false>()
-                .set_r::<false>()
-                .set_b::<false>()
-                .set_x::<false>()
+                .set_w(false)
+                .set_r(false)
+                .set_x(false)
+                .set_b(dst.needs_extension())
                 .finish();
-            self.buf.extend_from_slice(&[rex_prefix]);
+
+            self.push_byte(rex_prefix);
         }
-        let opcode = 0x0f;
-        let mod_rm = ModRmBuilder::new().direct().reg(0x0).rm(dst as u8).build();
-        self.buf.extend_from_slice(&[opcode, OPCODE, mod_rm]);
+
+        let mod_rm = ModRmBuilder::new()
+            .direct()
+            .reg(0x0)
+            .rm(dst.encode())
+            .build();
+
+        self.push_bytes([0x0f, OPCODE, mod_rm]);
     }
 
     fn assemble_jump(&mut self, target: Label) {
-        let opcode = 0xe9;
-
-        self.buf.extend_from_slice(&[opcode]);
+        self.push_byte(0xe9);
         self.add_patch(target);
-        self.buf.extend_from_slice(&0x0i32.to_le_bytes());
+        self.push_bytes(0x0i32.to_le_bytes());
     }
 
     fn assemble_jump_if_zero(&mut self, src: Register, target: Label) {
         let rex_prefix = RexBuilder::new()
-            .set_w::<true>()
-            .set_r::<false>()
-            .set_b::<false>()
-            .set_x::<false>()
+            .set_w(true)
+            .set_r(false)
+            .set_x(false)
+            .set_b(src.needs_extension())
             .finish();
 
         // cmp src,0x0
         if let Register::Ax = src {
-            let opcode = 0x3d;
-
-            self.buf.extend_from_slice(&[rex_prefix, opcode]);
+            self.push_bytes([rex_prefix, 0x3d]);
         } else {
-            let opcode = 0x81;
-            let mod_rm = ModRmBuilder::new().direct().reg(0x7).rm(src as u8).build();
+            let mod_rm = ModRmBuilder::new()
+                .direct()
+                .reg(0x7)
+                .rm(src.encode())
+                .build();
 
-            self.buf.extend_from_slice(&[rex_prefix, opcode, mod_rm]);
+            self.push_bytes([rex_prefix, 0x81, mod_rm]);
         }
 
-        self.buf.extend_from_slice(&0x0u32.to_le_bytes());
+        self.push_bytes(0x0u32.to_le_bytes());
 
         // je target
-        self.buf.extend_from_slice(&[0x0f, 0x84]);
+        self.push_bytes([0x0f, 0x84]);
         self.add_patch(target);
-        self.buf.extend_from_slice(&0x0i32.to_le_bytes());
+        self.push_bytes(0x0i32.to_le_bytes());
     }
 
     fn assemble_return(&mut self) {
-        let opcode = 0xC3;
-
-        self.buf.extend_from_slice(&[opcode]);
+        self.push_byte(0xc3);
     }
 
     fn assemble_call(&mut self, target: Register) {
-        let opcode = 0xFF;
+        if target.needs_extension() {
+            let rex_prefix = RexBuilder::new()
+                .set_w(false)
+                .set_r(false)
+                .set_x(false)
+                .set_b(true)
+                .finish();
+
+            self.push_byte(rex_prefix);
+        }
+
         let mod_rm = ModRmBuilder::new()
             .direct()
             .reg(0x2)
-            .rm(target as u8)
+            .rm(target.encode())
             .build();
 
-        self.buf.extend_from_slice(&[opcode, mod_rm]);
+        self.push_bytes([0xff, mod_rm]);
     }
 
     pub fn finish(&mut self) -> Result<(), AssemblerError> {
