@@ -2,3 +2,4 @@
 *.o
 *.out
 Cargo.lock
+tests/asm/out

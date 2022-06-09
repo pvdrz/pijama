@@ -1,35 +1,48 @@
 use std::{
     ffi::OsStr,
     fs::{create_dir, read_dir},
-    path::PathBuf,
+    io,
+    path::{Path, PathBuf},
     process::Command,
 };
 
-fn main() -> Result<(), std::io::Error> {
-    println!("cargo:rerun-if-changed=tests/asm/src");
+fn assemble_tests(
+    platform: &'static str,
+    tests_path: &Path,
+    output_path: &Path,
+) -> Result<(), io::Error> {
+    let src_path = tests_path.join(platform);
 
-    let out = PathBuf::from("tests/asm/out");
+    println!("cargo:rerun-if-changed={}", src_path.display());
 
-    if !out.exists() {
-        create_dir(&out)?;
+    if !output_path.exists() {
+        create_dir(&output_path)?;
     }
 
-    for result in read_dir("tests/asm/src")? {
-        let path = result?.path();
+    for result in read_dir(src_path)? {
+        let file_path = result?.path();
 
-        if path.extension() == Some(OsStr::new("asm")) {
-            let file_name = path.file_name().unwrap();
-            let mut out = out.clone();
-            out.push(file_name);
+        if file_path.extension() == Some(OsStr::new("asm")) {
+            let file_name = file_path.file_name().unwrap();
+            let out = output_path.join(file_name).with_extension(platform);
 
             Command::new("nasm")
-                .arg(&path)
+                .arg(&file_path)
                 .arg("-O0")
                 .arg("-o")
-                .arg(out.with_extension("out"))
+                .arg(out)
                 .output()?;
         }
     }
+
+    Ok(())
+}
+
+fn main() -> Result<(), io::Error> {
+    let tests_path = PathBuf::from_iter(["tests", "asm"]);
+    let output_path = tests_path.join("out");
+
+    assemble_tests("x86_64", &tests_path, &output_path)?;
 
     Ok(())
 }
